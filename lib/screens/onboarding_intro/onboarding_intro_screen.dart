@@ -125,8 +125,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                   totalSteps: _introSteps.length,
                   onBack: _handlePrev,
                 ),
-
-                // --- 메인 콘텐츠 (AnimatedSwitcher로 전환 효과) ---
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
@@ -137,7 +135,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                         },
                         child: _buildIntroCard(
                           context,
-                          // key를 주어야 AnimatedSwitcher가 다른 위젯으로 인식
                           key: ValueKey<int>(_currentStep),
                           data: _introSteps[_currentStep],
                         ),

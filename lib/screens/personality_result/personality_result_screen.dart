@@ -100,12 +100,8 @@ class PersonalityResultScreen extends StatefulWidget {
 
 // .tsx의 useState 로직을 담당하는 State 클래스
 class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
-  // `const [isNicknameStep, setIsNicknameStep] = useState(false);`
   bool _isNicknameStep = false;
-
-  // `const [nickname, setNickname] = useState('');`
   final TextEditingController _nicknameController = TextEditingController();
-
   late PersonalityData _personality;
   bool _isButtonEnabled = false;
 

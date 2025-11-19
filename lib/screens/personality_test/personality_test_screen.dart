@@ -297,7 +297,7 @@ class _PersonalityTestScreenState extends State<PersonalityTestScreen> {
               children: question.options.map((option) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  // 2. 1단계에서 만든 공용 위젯 사용!
+                  // 공용 위젯 재사용
                   child: SelectionOptionButton(
                     text: option.text,
                     isSelected: _selectedAnswerValue == option.value,

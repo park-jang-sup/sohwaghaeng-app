@@ -29,7 +29,8 @@ class CustomBackButton extends StatelessWidget {
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: const Icon(LucideIcons.chevronLeft, size: 20.0),
+        // [수정] LucideIcons.chevronLeft -> Icons.arrow_back_ios_new (기본 아이콘)
+        icon: const Icon(Icons.arrow_back_ios_new, size: 20.0),
         color: Colors.grey.shade800,
       ),
     );

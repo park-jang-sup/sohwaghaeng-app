@@ -3,17 +3,16 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 사용하지 않으므로 주석 처리 혹은 삭제
 import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/widgets/planet_progress_indicator.dart';
 
-// [수정] TodayTabScreen은 이제 상태와 핸들러를 부모로부터 전달받습니다.
 class TodayTabScreen extends StatefulWidget {
   final List<Mission> missions;
   final Map<String, bool> attendanceData;
   final Function(String) onToggleMission;
-  final VoidCallback onAddMission; // AppShell의 모달 여는 함수
-  final Function(String, String?) onAddPhoto; // AppShell의 사진 추가/삭제 핸들러
+  final VoidCallback onAddMission;
+  final Function(String, String?) onAddPhoto;
   final Function(String) onDeleteMission;
 
   const TodayTabScreen({
@@ -31,8 +30,6 @@ class TodayTabScreen extends StatefulWidget {
 }
 
 class _TodayTabScreenState extends State<TodayTabScreen> {
-  // [삭제] missions, attendanceData, customTags 상태 (이제 widget에서 받음)
-
   Mission? _missionToDelete;
   final Set<String> _expandedMissions = <String>{};
   final Set<String> _showDeleteButtons = <String>{};
@@ -44,16 +41,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     super.initState();
     _currentDateFormatted =
         DateFormat.yMMMMd('ko_KR').add_EEEE().format(DateTime.now());
-
-    // [삭제] _missions, _attendanceData, _customTags 초기화 로직 (widget에서 받음)
   }
 
-  // [삭제] _onToggleMission (widget.onToggleMission 사용)
-  // [삭제] _onAddMission (widget.onAddMission 사용)
-  // [삭제] _handleAddNewMission (AppShell로 이동됨)
-  // [삭제] _handleAddNewCustomTag (AppShell로 이동됨)
-
-  // [수정] _onAddPhoto는 ImagePicker를 실행하고, 부모의 핸들러(widget.onAddPhoto)를 호출
   Future<void> _onAddPhoto(String missionId) async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -61,12 +50,9 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     }
   }
 
-  // [수정] _onRemovePhoto는 부모의 핸들러(widget.onAddPhoto)에 null을 전달하여 호출
   void _onRemovePhoto(String missionId) {
     widget.onAddPhoto(missionId, null);
   }
-
-  // [삭제] _onDeleteMission (widget.onDeleteMission 사용)
 
   void _showDeleteDialog(Mission mission) {
     setState(() => _missionToDelete = mission);
@@ -90,7 +76,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
             child: const Text('삭제'),
             onPressed: () {
               if (_missionToDelete != null) {
-                // [수정] widget.onDeleteMission 호출
                 widget.onDeleteMission(_missionToDelete!.id);
               }
               setState(() => _missionToDelete = null);
@@ -125,16 +110,16 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // [수정] 상태를 widget에서 직접 참조
     final completedCount = widget.missions.where((m) => m.completed).length;
     final bool isCompleted =
         widget.missions.isNotEmpty && completedCount == widget.missions.length;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: widget.onAddMission, // [수정] AppShell의 모달 여는 함수 호출
+        onPressed: widget.onAddMission,
         backgroundColor: Colors.orange,
-        child: const Icon(LucideIcons.plus, color: Colors.white),
+        // [수정 3] 미션 추가 아이콘 변경 (LucideIcons.plus -> Icons.add)
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       body: Container(
         width: double.infinity,
@@ -155,7 +140,7 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context, completedCount, widget.missions.length), // [수정]
+                  _buildHeader(context, completedCount, widget.missions.length),
                   Text(_currentDateFormatted,
                       style: TextStyle(
                         color: Colors.grey.shade600,
@@ -212,7 +197,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     for (int i = -3; i <= 3; i++) {
       final date = today.add(Duration(days: i));
       final dateKey = date.toIso8601String().split('T')[0];
-      // [수정] _attendanceData -> widget.attendanceData
       final bool completed = widget.attendanceData[dateKey] ?? false;
       final bool isToday = i == 0;
       final bool isFutureDay = i > 0;
@@ -294,7 +278,7 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
               color: borderColor,
               width: 2,
               style: (isToday && !completed)
-                  ? BorderStyle.solid // DottedBorder 패키지 사용 시 BorderStyle.dashed
+                  ? BorderStyle.solid
                   : BorderStyle.solid,
             ),
           ),
@@ -327,7 +311,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
   }
 
   Widget _buildMissionList(BuildContext context) {
-    // [수정] _missions -> widget.missions
     if (widget.missions.isEmpty) {
       return Card(
         shape: RoundedRectangleBorder(
@@ -335,7 +318,7 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           side: BorderSide(
             color: Colors.grey.shade200,
             width: 2,
-            style: BorderStyle.solid, // DottedBorder 패키지 사용 시 BorderStyle.dashed
+            style: BorderStyle.solid,
           ),
         ),
         elevation: 0,
@@ -345,7 +328,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           child: Center(
             child: Column(
               children: [
-                Icon(LucideIcons.smile,
+                // [수정] 빈 상태 아이콘 (LucideIcons.smile -> Icons.sentiment_satisfied_alt)
+                Icon(Icons.sentiment_satisfied_alt,
                     size: 40, color: Colors.grey.shade400),
                 const SizedBox(height: 8),
                 Text(
@@ -361,7 +345,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     }
 
     return Column(
-      // [수정] _missions -> widget.missions
       children:
       widget.missions.map((m) => _buildMissionCard(context, m)).toList(),
     );
@@ -378,7 +361,39 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
       child: Dismissible(
         key: ValueKey(mission.id),
         direction: DismissDirection.endToStart,
-        onDismissed: (_) => _showDeleteDialog(mission),
+
+        // [수정 1] confirmDismiss 추가: 스와이프 시 삭제할지 말지 먼저 물어봅니다.
+        confirmDismiss: (direction) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('미션을 삭제하시겠습니까?'),
+              content: Text('"${mission.title}"을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.'),
+              actions: [
+                TextButton(
+                  child: const Text('취소'),
+                  onPressed: () {
+                    Navigator.pop(context, false); // false 반환 (삭제 취소)
+                  },
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('삭제'),
+                  onPressed: () {
+                    Navigator.pop(context, true); // true 반환 (삭제 진행)
+                  },
+                )
+              ],
+            ),
+          );
+        },
+
+        // [수정 2] onDismissed 수정: confirmDismiss가 true일 때만 실행됩니다.
+        // 여기서는 UI 갱신 없이 데이터만 바로 삭제 요청하면 됩니다.
+        onDismissed: (_) {
+          widget.onDeleteMission(mission.id);
+        },
+
         background: Container(
           decoration: BoxDecoration(
             color: Colors.red.shade500,
@@ -389,17 +404,19 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(LucideIcons.trash2, color: Colors.white),
+              Icon(Icons.delete, color: Colors.white),
               SizedBox(height: 4),
               Text('삭제', style: TextStyle(color: Colors.white, fontSize: 12)),
             ],
           ),
         ),
         child: GestureDetector(
+          // ... 기존 코드 동일 ...
           onLongPress: () => _toggleDeleteMode(mission.id),
           onDoubleTap: () => _toggleExpandMission(mission.id),
           onTap: _hideAllDeleteModes,
           child: Card(
+            // ... 기존 Card 코드 동일 ...
             elevation: isCompleted ? 1 : 4,
             shadowColor: Colors.black.withOpacity(0.1),
             shape: RoundedRectangleBorder(
@@ -446,8 +463,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                           children: [
                             Checkbox(
                               value: isCompleted,
-                              // [수정] widget.onToggleMission 호출
-                              onChanged: (_) => widget.onToggleMission(mission.id),
+                              onChanged: (_) =>
+                                  widget.onToggleMission(mission.id),
                               activeColor: Colors.orange,
                               fillColor:
                               MaterialStateProperty.resolveWith((states) {
@@ -493,15 +510,17 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                             IconButton(
                               icon: Icon(
                                 isDeleteMode
-                                    ? LucideIcons.trash2
-                                    : LucideIcons.ellipsis,
+                                    ? Icons.delete_outline
+                                    : Icons.more_horiz,
                                 color: isDeleteMode
                                     ? Colors.red.shade600
                                     : Colors.grey.shade400,
-                                size: 20,
+                                size: 24,
                               ),
                               onPressed: () {
                                 if (isDeleteMode) {
+                                  // 카드 내 버튼으로 삭제 시에는 confirmDismiss를 타지 않으므로
+                                  // 기존 다이얼로그 로직을 별도로 호출해야 합니다.
                                   _showDeleteDialog(mission);
                                 } else {
                                   _toggleDeleteMode(mission.id);
@@ -543,12 +562,12 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                               if (isCompleted && !isDeleteMode)
                                 hasPhoto
                                     ? _buildPhotoActionButton(
-                                  icon: LucideIcons.x,
+                                  icon: Icons.close,
                                   onPressed: () =>
                                       _onRemovePhoto(mission.id),
                                 )
                                     : _buildPhotoActionButton(
-                                  icon: LucideIcons.camera,
+                                  icon: Icons.add_a_photo_outlined,
                                   text: "사진 추가",
                                   onPressed: () =>
                                       _onAddPhoto(mission.id),
@@ -595,7 +614,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
   }) {
     if (text != null) {
       return OutlinedButton.icon(
-        icon: Icon(icon, size: 14),
+        // [수정] 아이콘 사이즈 조정 (14 -> 18)
+        icon: Icon(icon, size: 18),
         label: Text(text, style: const TextStyle(fontSize: 12)),
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
@@ -603,16 +623,16 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           backgroundColor: Colors.white.withOpacity(0.5),
           side: BorderSide(
             color: Colors.grey.shade400,
-            style: BorderStyle.solid, // DottedBorder 패키지 사용 시 BorderStyle.dashed
+            style: BorderStyle.solid,
           ),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
       );
     }
 
     return IconButton(
-      icon: Icon(icon, size: 16),
+      icon: Icon(icon, size: 20), // [수정] 닫기 버튼 사이즈 약간 키움
       onPressed: onPressed,
       style: IconButton.styleFrom(
         backgroundColor: Colors.white.withOpacity(0.9),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:b612_1/models/custom_tag.dart';
 import 'package:b612_1/widgets/tag_selection_button.dart';
 
@@ -7,7 +7,7 @@ import 'package:b612_1/widgets/tag_selection_button.dart';
 class NewMissionData {
   final String title;
   final String description;
-  final String tagId; // .tsx의 'tag'
+  final String tagId;
   final bool isPublic;
 
   NewMissionData({
@@ -18,31 +18,30 @@ class NewMissionData {
   });
 }
 
-// --- .tsx의 defaultTagOptions와 customIconOptions 데이터 ---
+// --- [수정 1] LucideIcons -> 기본 Icons로 변경 ---
 final List<CustomTag> _defaultTagOptions = [
-  const CustomTag(id: 'wellness', label: '웰빙', icon: LucideIcons.sun),
-  const CustomTag(id: 'daily', label: '일상', icon: LucideIcons.coffee),
-  const CustomTag(id: 'growth', label: '성장', icon: LucideIcons.book),
-  const CustomTag(id: 'happiness', label: '행복', icon: LucideIcons.smile),
-  const CustomTag(id: 'love', label: '사랑', icon: LucideIcons.heart),
-  const CustomTag(id: 'goal', label: '목표', icon: LucideIcons.target),
-  const CustomTag(id: 'energy', label: '에너지', icon: LucideIcons.zap),
-  const CustomTag(id: 'achievement', label: '성취', icon: LucideIcons.star),
-  const CustomTag(id: 'nature', label: '자연', icon: LucideIcons.treePine),
+  const CustomTag(id: 'wellness', label: '웰빙', icon: Icons.wb_sunny), // sun -> wb_sunny
+  const CustomTag(id: 'daily', label: '일상', icon: Icons.coffee),      // coffee -> coffee
+  const CustomTag(id: 'growth', label: '성장', icon: Icons.menu_book), // book -> menu_book
+  const CustomTag(id: 'happiness', label: '행복', icon: Icons.sentiment_satisfied_alt), // smile -> sentiment_satisfied_alt
+  const CustomTag(id: 'love', label: '사랑', icon: Icons.favorite),    // heart -> favorite
+  const CustomTag(id: 'goal', label: '목표', icon: Icons.track_changes), // target -> track_changes
+  const CustomTag(id: 'energy', label: '에너지', icon: Icons.bolt),      // zap -> bolt
+  const CustomTag(id: 'achievement', label: '성취', icon: Icons.star), // star -> star
+  const CustomTag(id: 'nature', label: '자연', icon: Icons.park),      // treePine -> park
 ];
 
 final Map<String, IconData> _customIconOptions = {
-  'heart': LucideIcons.heart,
-  'star': LucideIcons.star,
-  'target': LucideIcons.target,
-  'zap': LucideIcons.zap,
-  'tree': LucideIcons.treePine,
+  'heart': Icons.favorite,
+  'star': Icons.star,
+  'target': Icons.track_changes,
+  'zap': Icons.bolt,
+  'tree': Icons.park,
 };
 // --- 데이터 끝 ---
 
 
 class AddMissionModal extends StatefulWidget {
-  // .tsx의 Props
   final List<CustomTag> customTags;
   final Function(NewMissionData) onAddMission;
   final Function(CustomTag) onAddCustomTag;
@@ -59,7 +58,6 @@ class AddMissionModal extends StatefulWidget {
 }
 
 class _AddMissionModalState extends State<AddMissionModal> {
-  // --- .tsx의 useState에 해당하는 상태 변수 ---
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _customTagNameController = TextEditingController();
@@ -98,7 +96,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
     super.dispose();
   }
 
-  // .tsx의 handleSubmit
   void _handleSubmit() {
     if (_isTitleEmpty) return;
 
@@ -109,19 +106,18 @@ class _AddMissionModalState extends State<AddMissionModal> {
       isPublic: _isPublic,
     ));
 
-    // 폼 초기화 및 모달 닫기 (onClose)
     _resetForm();
     Navigator.pop(context);
   }
 
-  // .tsx의 handleAddCustomTag
   void _handleAddCustomTag() {
     if (_isCustomTagEmpty) return;
 
     final newTag = CustomTag(
       id: 'custom-${DateTime.now().millisecondsSinceEpoch}',
       label: _customTagNameController.text.trim(),
-      icon: _customIconOptions[_selectedCustomIconId] ?? LucideIcons.heart,
+      // [수정 2] 기본값 아이콘 변경
+      icon: _customIconOptions[_selectedCustomIconId] ?? Icons.favorite,
     );
 
     widget.onAddCustomTag(newTag);
@@ -135,7 +131,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
     });
   }
 
-  // .tsx의 handleClose
   void _resetForm() {
     _titleController.clear();
     _descriptionController.clear();
@@ -150,15 +145,12 @@ class _AddMissionModalState extends State<AddMissionModal> {
 
   @override
   Widget build(BuildContext context) {
-    // .tsx의 <SheetContent>에 해당하는 부분
-    // `h-[80vh]` -> 화면 높이의 80%
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // .tsx의 <SheetHeader>
           Text(
             '새로운 미션 추가',
             style: TextStyle(
@@ -174,13 +166,11 @@ class _AddMissionModalState extends State<AddMissionModal> {
           ),
           const SizedBox(height: 24.0),
 
-          // .tsx의 <form> (Flutter에서는 Column/ListView로 대체)
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Title Input ---
                   _buildTextField(
                     controller: _titleController,
                     label: '미션 제목',
@@ -188,7 +178,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
                   ),
                   const SizedBox(height: 24.0),
 
-                  // --- Description Input ---
                   _buildTextField(
                     controller: _descriptionController,
                     label: '한 줄 설명',
@@ -196,15 +185,12 @@ class _AddMissionModalState extends State<AddMissionModal> {
                   ),
                   const SizedBox(height: 24.0),
 
-                  // --- Tag Selection ---
                   _buildTagSection(context),
                   const SizedBox(height: 24.0),
 
-                  // --- Public/Private Toggle ---
                   _buildPublicToggle(context),
                   const SizedBox(height: 32.0),
 
-                  // --- Submit Button ---
                   ElevatedButton(
                     onPressed: _isTitleEmpty ? null : _handleSubmit,
                     style: ElevatedButton.styleFrom(
@@ -226,7 +212,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
     );
   }
 
-  /// 텍스트 입력 필드
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -258,7 +243,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
     );
   }
 
-  /// 태그 선택 섹션
   Widget _buildTagSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +260,8 @@ class _AddMissionModalState extends State<AddMissionModal> {
                   _showCustomTagForm = !_showCustomTagForm;
                 });
               },
-              icon: const Icon(LucideIcons.plus, size: 12.0),
+              // [수정 3] 태그 추가 버튼 아이콘 (LucideIcons.plus -> Icons.add)
+              icon: const Icon(Icons.add, size: 12.0),
               label: const Text('태그 추가', style: TextStyle(fontSize: 12.0)),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Colors.grey.shade300),
@@ -286,7 +271,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
         ),
         const SizedBox(height: 12.0),
 
-        // --- Custom Tag Form ---
         AnimatedCrossFade(
           firstChild: _buildCustomTagForm(context),
           secondChild: const SizedBox.shrink(),
@@ -296,7 +280,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
           duration: const Duration(milliseconds: 300),
         ),
 
-        // --- Tag Grid ---
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -325,7 +308,6 @@ class _AddMissionModalState extends State<AddMissionModal> {
     );
   }
 
-  /// 커스텀 태그 추가 폼
   Widget _buildCustomTagForm(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -384,9 +366,7 @@ class _AddMissionModalState extends State<AddMissionModal> {
     );
   }
 
-  /// 공개/비공개 토글
   Widget _buildPublicToggle(BuildContext context) {
-    // Flutter의 `SwitchListTile`이 .tsx의 UI와 가장 유사
     return SwitchListTile(
       value: _isPublic,
       onChanged: (bool value) {

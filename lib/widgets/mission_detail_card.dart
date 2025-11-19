@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:b612_1/models/browser_mission.dart';
 import 'package:b612_1/utils/tag_colors.dart';
 
@@ -26,7 +26,7 @@ class MissionDetailCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.0)),
       child: Container(
-        height: 384.0, // h-96
+        height: 384.0,
         decoration: BoxDecoration(
           gradient: getGradientForTag(mission.tag),
         ),
@@ -48,6 +48,7 @@ class MissionDetailCard extends StatelessWidget {
                           color: Colors.white.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(20.0),
                         ),
+                        // BrowserMission에서 이미 IconData(Material)로 바꿨으므로 여기는 수정 불필요
                         child: Icon(mission.icon, size: 32.0, color: Colors.orange.shade600),
                       ),
                       const SizedBox(height: 16.0),
@@ -105,9 +106,10 @@ class MissionDetailCard extends StatelessWidget {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                         ),
+                        // [수정 1] LucideIcons.heart -> Icons.favorite / Icons.favorite_border
                         icon: Icon(
-                          isLiked ? LucideIcons.heart : LucideIcons.heart,
-                          size: 16.0,
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          size: 20.0, // Material 아이콘은 20~24 정도가 적당
                           color: isLiked ? Colors.red.shade600 : null,
                         ),
                         label: Text(likeCount.toString()),
@@ -125,7 +127,8 @@ class MissionDetailCard extends StatelessWidget {
                 onPressed: onAdd,
                 mini: true,
                 backgroundColor: Theme.of(context).primaryColor,
-                child: const Icon(LucideIcons.plus, color: Colors.white),
+                // [수정 2] LucideIcons.plus -> Icons.add
+                child: const Icon(Icons.add, color: Colors.white),
               ),
             ),
           ],
