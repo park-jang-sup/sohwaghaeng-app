@@ -1,12 +1,11 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:table_calendar/table_calendar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:b612_1/models/completed_mission.dart';
-// 1. [추가] tag_colors.dart import (getCategoryColor를 사용하기 위함)
 import 'package:b612_1/utils/tag_colors.dart';
 
 class HistoryTabScreen extends StatefulWidget {
@@ -39,7 +38,6 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
   @override
   void initState() {
     super.initState();
-    // 임시 샘플 데이터 사용
     _completedMissions = sampleCompletedMissions;
     _missionsByDate = _groupMissionsByDate(_completedMissions);
   }
@@ -88,7 +86,6 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image == null) return;
 
-    // TODO: AppShell의 핸들러를 호출하도록 수정
     setState(() {
       final updatedMission = _completedMissions.firstWhere((m) => m.id == mission.id);
       updatedMission.photos = [image.path];
@@ -101,12 +98,11 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
       _missionsByDate = _groupMissionsByDate(_completedMissions);
     });
 
-    Navigator.pop(context); // 이전 다이얼로그 닫기
-    _handlePhotoClick(mission); // 새 정보로 다이얼로그 다시 열기
+    Navigator.pop(context);
+    _handlePhotoClick(mission);
   }
 
   void _handleDeletePhoto(String missionId) {
-    // TODO: AppShell의 핸들러를 호출하도록 수정
     setState(() {
       final updatedMission = _completedMissions.firstWhere((m) => m.id == missionId);
       updatedMission.photos = [];
@@ -115,7 +111,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
 
       _missionsByDate = _groupMissionsByDate(_completedMissions);
     });
-    Navigator.pop(context); // 다이얼로그 닫기
+    Navigator.pop(context);
   }
 
   @override
@@ -232,7 +228,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
             ),
             const SizedBox(width: 16.0),
             IconButton(
-              icon: const Icon(LucideIcons.settings, size: 24.0),
+              // [수정] LucideIcons.settings -> Icons.settings
+              icon: const Icon(Icons.settings, size: 24.0),
               color: Colors.grey.shade600,
               style: IconButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -270,8 +267,9 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
         titleCentered: true,
         titleTextStyle: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
         formatButtonVisible: false,
-        leftChevronIcon: Icon(LucideIcons.chevronLeft, size: 20.0, color: Colors.grey.shade500),
-        rightChevronIcon: Icon(LucideIcons.chevronRight, size: 20.0, color: Colors.grey.shade500),
+        // [수정] LucideIcons.chevronLeft/Right -> Icons.chevron_left/right
+        leftChevronIcon: Icon(Icons.chevron_left, size: 20.0, color: Colors.grey.shade500),
+        rightChevronIcon: Icon(Icons.chevron_right, size: 20.0, color: Colors.grey.shade500),
       ),
       calendarStyle: CalendarStyle(
         todayDecoration: BoxDecoration(
@@ -292,11 +290,11 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
           final missions = _getMissionsForDay(day);
           if (missions.isNotEmpty) {
             final photoMission = missions.firstWhere(
-                  (m) => m.hasPhoto && (m.photos?.isNotEmpty ?? false),  // ← 수정
+                  (m) => m.hasPhoto && (m.photos?.isNotEmpty ?? false),
               orElse: () => missions.first,
             );
 
-            if (photoMission.hasPhoto && (photoMission.photos?.isNotEmpty ?? false)) {  // ← 수정
+            if (photoMission.hasPhoto && (photoMission.photos?.isNotEmpty ?? false)) {
               return Positioned(
                 bottom: 4.0,
                 child: ClipRRect(
@@ -356,8 +354,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
               const SizedBox(height: 4.0),
               Text('개의 미션', style: TextStyle(color: Colors.grey.shade500)),
               const SizedBox(height: 12.0),
-              // 5. [수정] calendarDays -> calendar (존재하는 아이콘으로)
-              Icon(LucideIcons.calendar, size: 24.0, color: Colors.grey.shade400),
+              // [수정] LucideIcons.calendar -> Icons.calendar_today
+              Icon(Icons.calendar_today, size: 24.0, color: Colors.grey.shade400),
               const SizedBox(height: 8.0),
               Text('이 날에는 완료한 미션이 없습니다', style: TextStyle(color: Colors.grey.shade500, fontSize: 14.0)),
               Text('다른 날짜를 선택해보세요 ✨', style: TextStyle(color: Colors.grey.shade400, fontSize: 12.0)),
@@ -509,14 +507,16 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                                 ),
                                 child: Row(
                                   children: [
+                                    // [수정] LucideIcons.camera/plus -> Icons.camera_alt/add
                                     Icon(
-                                      mission.hasPhoto ? LucideIcons.camera : LucideIcons.plus,
+                                      mission.hasPhoto ? Icons.camera_alt : Icons.add,
                                       size: 14.0,
                                       color: mission.hasPhoto ? Colors.grey.shade600 : Colors.grey.shade400,
                                     ),
                                     if (!mission.hasPhoto)
+                                    // [수정] LucideIcons.camera -> Icons.camera_alt
                                       Icon(
-                                        LucideIcons.camera,
+                                        Icons.camera_alt,
                                         size: 14.0,
                                         color: Colors.grey.shade400,
                                       ),
@@ -586,7 +586,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
               Container(
                 padding: const EdgeInsets.all(16.0),
                 color: Colors.orange.shade100.withOpacity(0.5),
-                child: (mission.photos?.isNotEmpty ?? false)  // ← 수정
+                child: (mission.photos?.isNotEmpty ?? false)
                     ? Image.network(
                   mission.photos!.first,
                   height: 300.0,
@@ -601,7 +601,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(LucideIcons.camera, size: 48.0, color: Colors.orange.shade400),
+                      // [수정] LucideIcons.camera -> Icons.camera_alt
+                      Icon(Icons.camera_alt, size: 48.0, color: Colors.orange.shade400),
                       const SizedBox(height: 16.0),
                       Text('첨부된 사진이 없습니다', style: TextStyle(fontSize: 16.0, color: Colors.grey.shade500)),
                     ],
@@ -617,8 +618,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                   children: [
                     if (mission.hasPhoto) ...[
                       TextButton.icon(
-                        // 8. [수정] pencil -> edit
-                        icon: const Icon(LucideIcons.pencil, size: 14.0),
+                        // [수정] LucideIcons.pencil -> Icons.edit
+                        icon: const Icon(Icons.edit, size: 14.0),
                         label: const Text('변경'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.orange.shade600,
@@ -629,7 +630,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                         },
                       ),
                       TextButton.icon(
-                        icon: const Icon(LucideIcons.trash2, size: 14.0),
+                        // [수정] LucideIcons.trash2 -> Icons.delete_outline
+                        icon: const Icon(Icons.delete_outline, size: 14.0),
                         label: const Text('삭제'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red.shade600,
@@ -641,7 +643,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                       ),
                     ] else ...[
                       ElevatedButton.icon(
-                        icon: const Icon(LucideIcons.plus, size: 14.0),
+                        // [수정] LucideIcons.plus -> Icons.add
+                        icon: const Icon(Icons.add, size: 14.0),
                         label: const Text('사진 추가하기'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,

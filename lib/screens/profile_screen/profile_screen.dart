@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:b612_1/app_shell.dart' show UserProfile;
 
-// .tsx의 availableEmojis
 final List<String> _availableEmojis = [
   '😊', '😄', '🥰', '😎', '🤗', '🙃', '😇', '🤓', '🥳', '😌',
   '🌟', '✨', '🌈', '🦄', '🐱', '🐶', '🐻', '🐼', '🦊', '🐸',
   '🌸', '🌺', '🌻', '🌷', '🌹', '🍀', '🌿', '🌱', '🌳', '🍃'
 ];
 
-// .tsx의 availableBioTags
 final List<String> _availableBioTags = [
   '소확행 실천러', '일상 기록자', '작은 행복 수집가', '루틴 메이커',
   '성장하는 중', '긍정 에너지', '미니멀 라이프', '자기계발러',
@@ -21,7 +19,6 @@ final List<String> _availableBioTags = [
 
 
 class ProfileScreen extends StatefulWidget {
-  // .tsx의 Props
   final UserProfile userProfile;
   final VoidCallback onBack;
   final VoidCallback onLogout;
@@ -40,7 +37,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // .tsx의 useState에 해당하는 상태 변수들
   bool _isEditing = false;
   late TextEditingController _nicknameController;
   late String _selectedEmoji;
@@ -50,13 +46,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _missionReminder = true;
   bool _weeklyReport = false;
 
-  // .tsx의 showEmojiPicker, showBioSelector는
-  // showModalBottomSheet로 대체하므로 별도 상태가 필요 없습니다.
-
   @override
   void initState() {
     super.initState();
-    // AppShell에서 받은 userProfile로 로컬 상태 초기화
     _nicknameController = TextEditingController(text: widget.userProfile.nickname);
     _selectedEmoji = widget.userProfile.profileEmoji;
     _selectedBio = widget.userProfile.bio;
@@ -68,25 +60,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // .tsx의 handleSave
   void _handleSave() {
-    // 1. AppShell에 보낼 새 UserProfile 객체 생성
     final updatedProfile = UserProfile(
       nickname: _nicknameController.text.trim(),
       profileEmoji: _selectedEmoji,
       bio: _selectedBio,
-      email: widget.userProfile.email, // 이메일 등 기존 정보 유지
+      email: widget.userProfile.email,
       personalityType: widget.userProfile.personalityType,
     );
-    // 2. AppShell의 핸들러 호출
     widget.onUpdateProfile(updatedProfile);
 
-    // 3. 편집 모드 종료
     setState(() {
       _isEditing = false;
     });
 
-    // TODO: .tsx의 toast.success("프로필이 업데이트되었습니다.");
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('프로필이 업데이트되었습니다.'), duration: Duration(seconds: 2)),
     );
@@ -94,20 +81,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // .tsx의 헤더와 배경색
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F2),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1.0,
         leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: Colors.grey.shade600),
-          onPressed: widget.onBack, // AppShell의 핸들러 호출
+          // [수정] LucideIcons.arrowLeft -> Icons.arrow_back
+          icon: Icon(Icons.arrow_back, color: Colors.grey.shade600),
+          onPressed: widget.onBack,
         ),
         title: const Text('프로필 & 설정', style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.w500)),
         centerTitle: true,
       ),
-      // .tsx의 `p-4 space-y-4`
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -131,7 +117,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 프로필 정보 카드
   Widget _buildProfileEditCard(BuildContext context) {
     return Card(
       elevation: 0.5,
@@ -145,7 +130,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 const Text('프로필 정보', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
                 TextButton.icon(
-                  icon: Icon(_isEditing ? LucideIcons.check : LucideIcons.pencil, size: 16.0),
+                  // [수정] LucideIcons.check/pencil -> Icons.check/edit
+                  icon: Icon(_isEditing ? Icons.check : Icons.edit, size: 16.0),
                   label: Text(_isEditing ? '저장' : '편집'),
                   onPressed: () {
                     if (_isEditing) {
@@ -161,7 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16.0),
             Row(
               children: [
-                // .tsx의 이모지 선택기
                 GestureDetector(
                   onTap: () {
                     if (_isEditing) _showEmojiPicker(context);
@@ -172,7 +157,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
-                      // ringColor: Colors.orange.shade200,
                       border: Border.all(color: Colors.orange.shade200, width: 3.0),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5.0)],
                     ),
@@ -180,7 +164,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 16.0),
-                // .tsx의 닉네임
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 자기소개 태그 카드
   Widget _buildBioTagCard(BuildContext context) {
     return Card(
       elevation: 0.5,
@@ -228,7 +210,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
                 ),
                 IconButton(
-                  icon: const Icon(LucideIcons.pencil, size: 16.0),
+                  // [수정] LucideIcons.pencil -> Icons.edit
+                  icon: const Icon(Icons.edit, size: 16.0),
                   color: const Color(0xFFFF7F50),
                   onPressed: () => _showBioSelector(context),
                 ),
@@ -253,27 +236,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 성향 테스트 다시하기 카드
   Widget _buildPersonalityTestCard(BuildContext context) {
     return Card(
       elevation: 0.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: ListTile(
-        leading: Icon(LucideIcons.sparkles, color: Colors.orange.shade500),
+        // [수정] LucideIcons.sparkles -> Icons.auto_awesome
+        leading: Icon(Icons.auto_awesome, color: Colors.orange.shade500),
         title: const Text('성향 테스트 다시하기'),
         trailing: Text(
           widget.userProfile.personalityType,
           style: TextStyle(fontSize: 14.0, color: Colors.grey.shade600),
         ),
         onTap: () {
-          // TODO: 성향 테스트 재시작 로직 (AppShell의 핸들러 호출)
           print('성향 테스트 다시하기');
         },
       ),
     );
   }
 
-  /// 알림 설정 카드
   Widget _buildNotificationCard(BuildContext context) {
     return Card(
       elevation: 0.5,
@@ -285,7 +266,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Row(
               children: [
-                Icon(LucideIcons.bell, size: 20.0, color: Colors.orange.shade500),
+                // [수정] LucideIcons.bell -> Icons.notifications
+                Icon(Icons.notifications, size: 20.0, color: Colors.orange.shade500),
                 const SizedBox(width: 8.0),
                 const Text('알림 설정', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
               ],
@@ -318,7 +300,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 기타 설정 카드 (개인정보, 고객센터)
   Widget _buildOtherSettingsCard(BuildContext context) {
     return Card(
       elevation: 0.5,
@@ -326,12 +307,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           ListTile(
-            leading: Icon(LucideIcons.lock, size: 20.0, color: Colors.grey.shade500),
+            // [수정] LucideIcons.lock -> Icons.lock
+            leading: Icon(Icons.lock, size: 20.0, color: Colors.grey.shade500),
             title: const Text('개인정보 처리방침'),
             onTap: () => print('개인정보 처리방침'),
           ),
           ListTile(
-            leading: Icon(LucideIcons.info, size: 20.0, color: Colors.grey.shade500),
+            // [수정] LucideIcons.info -> Icons.info_outline
+            leading: Icon(Icons.info_outline, size: 20.0, color: Colors.grey.shade500),
             title: const Text('고객센터'),
             onTap: () => print('고객센터'),
           ),
@@ -340,7 +323,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 계정 정보 카드
   Widget _buildAccountInfoCard(BuildContext context) {
     return Card(
       elevation: 0.5,
@@ -352,7 +334,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Row(
               children: [
-                Icon(LucideIcons.user, size: 20.0, color: Colors.grey.shade500),
+                // [수정] LucideIcons.user -> Icons.person
+                Icon(Icons.person, size: 20.0, color: Colors.grey.shade500),
                 const SizedBox(width: 8.0),
                 const Text('계정 정보', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
               ],
@@ -371,20 +354,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 로그아웃 카드
   Widget _buildLogoutCard(BuildContext context) {
     return Card(
       elevation: 0.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: ListTile(
-        leading: Icon(LucideIcons.logOut, size: 20.0, color: Colors.red.shade600),
+        // [수정] LucideIcons.logOut -> Icons.logout
+        leading: Icon(Icons.logout, size: 20.0, color: Colors.red.shade600),
         title: Text('로그아웃', style: TextStyle(color: Colors.red.shade600)),
-        onTap: widget.onLogout, // AppShell의 핸들러 호출
+        onTap: widget.onLogout,
       ),
     );
   }
 
-  /// .tsx의 `showEmojiPicker` (Modal Sheet)
   void _showEmojiPicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -438,7 +420,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// .tsx의 `showBioSelector` (Modal Sheet)
   void _showBioSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -461,7 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisCount: 2,
                       mainAxisSpacing: 8.0,
                       crossAxisSpacing: 8.0,
-                      childAspectRatio: 4.0, // 버튼을 더 넓게
+                      childAspectRatio: 4.0,
                     ),
                     itemCount: _availableBioTags.length,
                     itemBuilder: (context, index) {

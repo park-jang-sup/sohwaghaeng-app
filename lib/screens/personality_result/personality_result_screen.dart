@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
-// 1단계에서 만든 공용 위젯들을 import 합니다.
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:b612_1/widgets/custom_back_button.dart';
 import 'package:b612_1/widgets/gradient_button.dart';
 import 'package:b612_1/widgets/personality_badge.dart';
 import 'package:b612_1/models/personality_type.dart';
 
-// --- 데이터 모델 (TSX의 personalityData 객체에 해당) --
-
-/// 성향 데이터 구조를 class로 정의
 class PersonalityData {
   final String title;
   final String emoji;
   final String description;
   final List<String> traits;
   final List<String> recommendedMissions;
-  final List<Color> gradientColors; // `color: "from-purple-100 to-blue-100"`
-  final Widget icon; // `icon: <Sparkles ...>`
+  final List<Color> gradientColors;
+  final Widget icon;
 
   PersonalityData({
     required this.title,
@@ -29,7 +25,7 @@ class PersonalityData {
   });
 }
 
-// .tsx의 `personalityData` 상수를 Dart의 `Map`으로 변환
+// [수정] LucideIcons -> Material Icons로 변경
 final Map<PersonalityType, PersonalityData> personalityDataMap = {
   PersonalityType.introvert: PersonalityData(
     title: "조용한 성찰가",
@@ -42,9 +38,9 @@ final Map<PersonalityType, PersonalityData> personalityDataMap = {
       "일기 쓰며 하루 되돌아보기",
       "명상이나 요가하기"
     ],
-    // from-purple-100 to-blue-100
     gradientColors: [const Color(0xFFEDE9FE), const Color(0xFFDBEAFE)],
-    icon: const Icon(LucideIcons.sparkles, size: 24, color: Color(0xFFA855F7)),
+    // LucideIcons.sparkles -> Icons.auto_awesome (반짝임 효과)
+    icon: const Icon(Icons.auto_awesome, size: 24, color: Color(0xFFA855F7)),
   ),
   PersonalityType.extrovert: PersonalityData(
     title: "에너지 넘치는 소통가",
@@ -57,9 +53,9 @@ final Map<PersonalityType, PersonalityData> personalityDataMap = {
       "야외 활동 참여하기",
       "새로운 사람들과 대화하기"
     ],
-    // from-orange-100 to-yellow-100
     gradientColors: [const Color(0xFFFFEDD5), const Color(0xFFFEF9C3)],
-    icon: const Icon(LucideIcons.users, size: 24, color: Color(0xFFF97316)),
+    // LucideIcons.users -> Icons.groups (사람들)
+    icon: const Icon(Icons.groups, size: 24, color: Color(0xFFF97316)),
   ),
   PersonalityType.ambivert: PersonalityData(
     title: "균형잡힌 실천가",
@@ -72,16 +68,13 @@ final Map<PersonalityType, PersonalityData> personalityDataMap = {
       "자연 속에서 힐링하기",
       "창의적인 활동하기"
     ],
-    // from-green-100 to-teal-100
     gradientColors: [const Color(0xFFDCFCE7), const Color(0xFFCCFBF1)],
-    icon: const Icon(LucideIcons.heart, size: 24, color: Color(0xFF22C55E)),
+    // LucideIcons.heart -> Icons.balance (균형/저울 아이콘 사용)
+    icon: const Icon(Icons.balance, size: 24, color: Color(0xFF22C55E)),
   ),
 };
 
-// --- 메인 위젯 (StatefulWidget) ---
-
 class PersonalityResultScreen extends StatefulWidget {
-  // .tsx의 Props에 해당
   final PersonalityType personalityType;
   final Function(String nickname, String personalityDescription) onComplete;
   final VoidCallback onBack;
@@ -98,7 +91,6 @@ class PersonalityResultScreen extends StatefulWidget {
       _PersonalityResultScreenState();
 }
 
-// .tsx의 useState 로직을 담당하는 State 클래스
 class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
   bool _isNicknameStep = false;
   final TextEditingController _nicknameController = TextEditingController();
@@ -108,10 +100,8 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
   @override
   void initState() {
     super.initState();
-    // 위젯이 처음 생성될 때 성향 데이터를 조회합니다.
     _personality = personalityDataMap[widget.personalityType]!;
 
-    // 닉네임 입력 필드를 감지하여 버튼 활성화 여부를 결정합니다.
     _nicknameController.addListener(() {
       final isNotEmpty = _nicknameController.text.trim().isNotEmpty;
       if (_isButtonEnabled != isNotEmpty) {
@@ -128,17 +118,12 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     super.dispose();
   }
 
-  // --- 상태 변경 함수 (React의 핸들러) ---
-
-  // `handleContinue`
   void _handleContinue() {
     if (!_isNicknameStep) {
-      // 결과 화면 -> 닉네임 화면
       setState(() {
         _isNicknameStep = true;
       });
     } else {
-      // 닉네임 화면 -> 완료
       final nickname = _nicknameController.text.trim();
       if (nickname.isNotEmpty) {
         widget.onComplete(nickname, _personality.title);
@@ -146,19 +131,14 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     }
   }
 
-  // `handleBackFromNickname`
   void _handleBackFromNickname() {
-    // 닉네임 화면 -> 결과 화면
     setState(() {
       _isNicknameStep = false;
     });
   }
 
-  // --- UI 빌드 ---
-
   @override
   Widget build(BuildContext context) {
-    // .tsx의 `style={{ background: ... }}`
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -173,8 +153,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            // `isNicknameStep` 상태에 따라 다른 UI를 보여줍니다.
-            // (AnimatedSwitcher로 부드러운 전환 효과 추가)
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: _isNicknameStep
@@ -187,20 +165,17 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     );
   }
 
-  /// 결과 화면 UI (isNicknameStep = false)
   Widget _buildResultStep(BuildContext context, PersonalityData personality) {
     return Column(
-      key: const ValueKey('result'), // AnimatedSwitcher를 위한 Key
+      key: const ValueKey('result'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 상단 뒤로가기 버튼
         Align(
           alignment: Alignment.topLeft,
           child: CustomBackButton(
-            onPressed: widget.onBack, // 테스트 이전 화면으로 돌아가기
+            onPressed: widget.onBack,
           ),
         ),
-        // `flex-1 flex flex-col justify-center`
         Expanded(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -213,7 +188,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                   emojiSize: 40.0
               ),
               const SizedBox(height: 32.0),
-              // `Card`
               Card(
                 elevation: 8.0,
                 shadowColor: Colors.black.withOpacity(0.1),
@@ -224,7 +198,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 성향 타이틀 배지
                       Align(
                         alignment: Alignment.center,
                         child: PersonalityBadge(
@@ -236,7 +209,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                         ),
                       ),
                       const SizedBox(height: 16.0),
-                      // `description`
                       Text(
                         personality.description,
                         textAlign: TextAlign.center,
@@ -244,27 +216,23 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                       ),
                       const SizedBox(height: 24.0),
 
-                      // 특징
                       _buildSectionTitle("주요 특징"),
                       const SizedBox(height: 12.0),
-                      // `grid grid-cols-2 gap-2`
                       GridView.count(
                         crossAxisCount: 2,
-                        shrinkWrap: true, // Column 안에서 GridView가 크기를 잡도록
+                        shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 5, // 항목의 가로:세로 비율
+                        childAspectRatio: 5,
                         children: personality.traits.map(_buildTraitItem).toList(),
                       ),
 
                       const SizedBox(height: 24.0),
 
-                      // 추천 미션
                       _buildSectionTitle("추천 소확행"),
                       const SizedBox(height: 12.0),
-                      // `space-y-2`
                       Column(
                         children: personality.recommendedMissions
-                            .take(3) // 3개만 표시
+                            .take(3)
                             .map(_buildMissionItem)
                             .toList(),
                       ),
@@ -276,7 +244,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
             ],
           ),
         ),
-        // 하단 버튼
         GradientButton(
           text: "닉네임 설정하기",
           onPressed: _handleContinue,
@@ -285,20 +252,17 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     );
   }
 
-  /// 닉네임 입력 화면 UI (isNicknameStep = true)
   Widget _buildNicknameStep(BuildContext context, PersonalityData personality) {
     return Column(
-      key: const ValueKey('nickname'), // AnimatedSwitcher를 위한 Key
+      key: const ValueKey('nickname'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 상단 뒤로가기 버튼
         Align(
           alignment: Alignment.topLeft,
           child: CustomBackButton(
-            onPressed: _handleBackFromNickname, // 결과 화면으로 돌아가기
+            onPressed: _handleBackFromNickname,
           ),
         ),
-        // `flex-1 flex flex-col justify-center`
         Expanded(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -307,12 +271,11 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                   "마지막 단계예요!",
                   "어떻게 불러드릴까요?",
                   personality.emoji,
-                  size: 80.0, // 결과창보다 약간 작게
+                  size: 80.0,
                   emojiSize: 32.0
               ),
               const SizedBox(height: 32.0),
 
-              // `Card`
               Card(
                 elevation: 8.0,
                 shadowColor: Colors.black.withOpacity(0.1),
@@ -323,7 +286,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // `label`
                       Text(
                         '닉네임',
                         style: TextStyle(
@@ -333,13 +295,12 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                         ),
                       ),
                       const SizedBox(height: 8.0),
-                      // `Input`
                       TextField(
                         controller: _nicknameController,
                         maxLength: 20,
                         decoration: InputDecoration(
                           hintText: "닉네임을 입력해주세요",
-                          counterText: "", // "0/20" 카운터 숨기기
+                          counterText: "",
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8.0),
                             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -351,7 +312,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
                         ),
                       ),
                       const SizedBox(height: 8.0),
-                      // `p`
                       Text(
                         '최대 20자까지 입력 가능해요',
                         style: TextStyle(fontSize: 12.0, color: Colors.grey.shade500),
@@ -359,7 +319,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
 
                       const SizedBox(height: 24.0),
 
-                      // 성향 배지
                       PersonalityBadge(
                         icon: personality.icon,
                         title: personality.title,
@@ -372,19 +331,15 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
             ],
           ),
         ),
-        // 하단 버튼
         GradientButton(
           text: "소확행 시작하기! 🌟",
           onPressed: _handleContinue,
-          disabled: !_isButtonEnabled, // 닉네임이 비어있으면 비활성화
+          disabled: !_isButtonEnabled,
         ),
       ],
     );
   }
 
-  // --- 공통 UI 조각 (가독성을 위해 분리) ---
-
-  /// 상단 이모지 헤더
   Widget _buildEmojiHeader(String title, String subtitle, String emoji, {double size = 96.0, double emojiSize = 40.0}) {
     return Column(
       children: [
@@ -427,7 +382,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     );
   }
 
-  /// "주요 특징" 섹션 제목
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
@@ -439,21 +393,18 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     );
   }
 
-  /// 특징 목록의 개별 항목
   Widget _buildTraitItem(String trait) {
     return Row(
       children: [
-        // `w-2 h-2 bg-orange-400 rounded-full`
         Container(
           width: 8.0,
           height: 8.0,
           decoration: const BoxDecoration(
-            color: Color(0xFFF9A825), // 오렌지색
+            color: Color(0xFFF9A825),
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 8.0),
-        // `text-xs text-gray-700`
         Text(
           trait,
           style: TextStyle(fontSize: 12.0, color: Colors.grey.shade700),
@@ -462,7 +413,6 @@ class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
     );
   }
 
-  /// 추천 미션의 개별 항목
   Widget _buildMissionItem(String mission) {
     return Row(
       children: [

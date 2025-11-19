@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
-// 1. 우리가 이미 만든 공용 위젯들을 import 합니다.
+// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
 import 'package:b612_1/widgets/gradient_button.dart';
-// 2. 1단계에서 만든 새 공용 위젯들을 import 합니다.
 import 'package:b612_1/widgets/step_page_indicator.dart';
 import 'package:b612_1/widgets/step_progress_bar.dart';
 
-// --- 데이터 모델 (TSX의 introSteps 객체에 해당) ---
+// --- 데이터 모델 ---
 class IntroStepData {
   final Widget icon;
   final String title;
@@ -23,24 +21,27 @@ class IntroStepData {
   });
 }
 
-// .tsx의 `introSteps` 상수
+// [수정] LucideIcons -> Icons (Material)로 변경
 final List<IntroStepData> _introSteps = [
   IntroStepData(
-    icon: const Icon(LucideIcons.search, size: 64.0, color: Color(0xFFF97316)),
+    // LucideIcons.search -> Icons.search
+    icon: const Icon(Icons.search, size: 64.0, color: Color(0xFFF97316)),
     title: "탐색 탭",
     subtitle: "새로운 미션 발견하기",
     description: "다른 사용자들이 공유한 다양한 소확행 미션을 탐색하고, 나만의 리스트에 추가해보세요.",
     features: ["카테고리별 미션 탐색", "인기 미션 추천", "나만의 미션 추가"],
   ),
   IntroStepData(
-    icon: const Icon(LucideIcons.calendar, size: 64.0, color: Color(0xFFF97316)),
+    // LucideIcons.calendar -> Icons.calendar_today
+    icon: const Icon(Icons.calendar_today, size: 64.0, color: Color(0xFFF97316)),
     title: "오늘 탭",
     subtitle: "오늘의 소확행 실천하기",
     description: "하루 단위로 미션을 관리하고, 완료한 미션에 사진을 첨부하여 소중한 순간을 기록해보세요.",
     features: ["일일 미션 관리", "미션 완료 체크", "사진으로 기록 남기기"],
   ),
   IntroStepData(
-    icon: const Icon(LucideIcons.bookOpen, size: 64.0, color: Color(0xFFF97316)),
+    // LucideIcons.bookOpen -> Icons.menu_book
+    icon: const Icon(Icons.menu_book, size: 64.0, color: Color(0xFFF97316)),
     title: "나의 기록 탭",
     subtitle: "소확행 여정 되돌아보기",
     description: "완료한 미션들을 달력으로 확인하고, 첨부한 사진들로 나만의 소확행 앨범을 만들어보세요.",
@@ -48,9 +49,8 @@ final List<IntroStepData> _introSteps = [
   ),
 ];
 
-// --- 메인 위젯 (StatefulWidget) ---
+// --- 메인 위젯 ---
 class OnboardingIntroScreen extends StatefulWidget {
-  // .tsx의 `OnboardingIntroProps`
   final VoidCallback onComplete;
   final VoidCallback onBack;
 
@@ -65,10 +65,8 @@ class OnboardingIntroScreen extends StatefulWidget {
 }
 
 class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
-  // `useState(0)`
   int _currentStep = 0;
 
-  // `handleNext`
   void _handleNext() {
     if (_currentStep < _introSteps.length - 1) {
       setState(() {
@@ -79,7 +77,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
     }
   }
 
-  // `handlePrev`
   void _handlePrev() {
     if (_currentStep > 0) {
       setState(() {
@@ -90,7 +87,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
     }
   }
 
-  // `setCurrentStep(index)`
   void _handleDotTapped(int index) {
     setState(() {
       _currentStep = index;
@@ -101,7 +97,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
   Widget build(BuildContext context) {
     final bool isLastStep = _currentStep == _introSteps.length - 1;
 
-    // `div (background)`
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -119,9 +114,9 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // --- 상단 진행률 바 (공용 위젯 사용) ---
+                // --- 상단 진행률 바 ---
                 StepProgressBar(
-                  currentStep: _currentStep + 1, // 1-based index
+                  currentStep: _currentStep + 1,
                   totalSteps: _introSteps.length,
                   onBack: _handlePrev,
                 ),
@@ -143,7 +138,7 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                   ),
                 ),
 
-                // --- 하단 버튼 (공용 위젯 사용) ---
+                // --- 하단 버튼 ---
                 Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: GradientButton(
@@ -161,7 +156,7 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                   child: const Text("건너뛰기"),
                 ),
 
-                // --- 하단 점 인디케이터 (공용 위젯 사용) ---
+                // --- 하단 점 인디케이터 ---
                 StepPageIndicator(
                   currentStep: _currentStep,
                   totalSteps: _introSteps.length,
@@ -175,7 +170,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
     );
   }
 
-  /// 메인 카드 UI (가독성을 위해 분리)
   Widget _buildIntroCard(BuildContext context,
       {required Key key, required IntroStepData data}) {
     return Card(
@@ -188,10 +182,8 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
         padding: const EdgeInsets.all(32.0),
         child: Column(
           children: [
-            // `icon`
             data.icon,
             const SizedBox(height: 24.0),
-            // `h2 (title)`
             Text(
               data.title,
               style: TextStyle(
@@ -202,7 +194,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8.0),
-            // `p (subtitle)`
             Text(
               data.subtitle,
               style: TextStyle(
@@ -213,7 +204,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24.0),
-            // `p (description)`
             Text(
               data.description,
               style: TextStyle(
@@ -224,7 +214,6 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32.0),
-            // `div (features)`
             Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: data.features.map((feature) {
@@ -240,22 +229,19 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
     );
   }
 
-  /// 기능 목록의 개별 항목
   Widget _buildFeatureItem(String feature) {
     return Row(
-      mainAxisSize: MainAxisSize.min, // 중앙 정렬을 위해
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // `w-2 h-2 bg-orange-400 rounded-full`
         Container(
           width: 8.0,
           height: 8.0,
           decoration: const BoxDecoration(
-            color: Color(0xFFF9A825), // 오렌지색
+            color: Color(0xFFF9A825),
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 8.0),
-        // `text-sm text-gray-700`
         Text(
           feature,
           style: TextStyle(fontSize: 14.0, color: Colors.grey.shade700),
