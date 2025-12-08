@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // 날짜 처리를 위해 필요
 import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/models/custom_tag.dart';
-import 'package:b612_1/utils/icon_mapper.dart';
-import 'package:b612_1/widgets/modals/add_mission_modal.dart';
-// 온보딩 화면들
 import 'package:b612_1/screens/login/login_screen.dart';
 import 'package:b612_1/screens/onboarding_intro/onboarding_intro_screen.dart';
 import 'package:b612_1/screens/personality_test/personality_test_screen.dart';
 import 'package:b612_1/screens/personality_result/personality_result_screen.dart';
-// 메인 앱 뼈대
-import 'package:b612_1/main_app_scaffold.dart';
-// 1. [추가] 공통 PersonalityType import
+import 'package:b612_1/screens/nickname_setup/nickname_setup_screen.dart';
 import 'package:b612_1/models/personality_type.dart';
+import 'package:b612_1/screens/home_tab/home_tab_screen.dart';
+import 'package:b612_1/screens/mission_browser/mission_browser_screen.dart';
+import 'package:b612_1/screens/history_tab/history_tab_screen.dart';
+import 'package:b612_1/screens/profile_screen/profile_screen.dart';
+import 'package:b612_1/widgets/modals/mood_selector.dart';
 
-// .tsx의 onboardingStep
-enum OnboardingStep { login, intro, personalityTest, personalityResult, completed }
+enum OnboardingStep { login, intro, personalityTest, personalityResult, nicknameSetup, completed }
+enum TabItem { home, browse, records, profile }
 
-// .tsx의 userProfile
 class UserProfile {
   String nickname;
   String personalityType;
   String email;
   String profileEmoji;
   String bio;
+  bool isGuest;
 
   UserProfile({
     required this.nickname,
@@ -30,6 +31,7 @@ class UserProfile {
     required this.email,
     required this.profileEmoji,
     required this.bio,
+    this.isGuest = true,
   });
 }
 
@@ -41,25 +43,23 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  // --- .tsx의 useState에 해당하는 모든 상태 ---
   bool _isFirstTime = true;
   OnboardingStep _onboardingStep = OnboardingStep.login;
   PersonalityType? _personalityType;
 
-  List<Mission> _missions = Mission.getSampleMissions();
-  List<CustomTag> _customTags = [];
-  Map<String, bool> _attendanceData = {
-    // .tsx의 샘플 데이터
-    DateTime.now()
-        .subtract(const Duration(days: 2))
-        .toIso8601String()
-        .split('T')[0]: true,
-    DateTime.now()
-        .subtract(const Duration(days: 1))
-        .toIso8601String()
-        .split('T')[0]: true,
-  };
+  List<Mission> _missions = [];
+
+  // [신규] 완료된 미션들의 히스토리를 저장하는 리스트
+  List<Mission> _missionHistory = [];
+
+  TabItem _currentTab = TabItem.home;
+  bool _showMoodSelector = false;
+  String? _currentMood;
+  int _streakDays = 5;
+
+  Map<String, bool> _attendanceData = {};
   Set<String> _addedMissionIds = <String>{};
+
   UserProfile _userProfile = UserProfile(
     nickname: "소확행러",
     personalityType: "꾸준한 실천가",
@@ -68,24 +68,44 @@ class _AppShellState extends State<AppShell> {
     bio: "소확행 실천러",
   );
 
-  // --- .tsx의 핸들러 함수들 ---
+  @override
+  void initState() {
+    super.initState();
+    _missions = Mission.getSampleMissions();
+    _generateDummyAttendance();
+  }
 
-  // Mission 핸들러
+  void _generateDummyAttendance() {
+    final today = DateTime.now();
+    for (int i = 1; i <= 6; i++) {
+      final pastDate = today.subtract(Duration(days: i));
+      final dateKey = pastDate.toIso8601String().split('T')[0];
+      if (DateTime.now().millisecond % 10 > 4) {
+        _attendanceData[dateKey] = true;
+      }
+    }
+  }
+
+  // --- Handlers ---
+
+  void _handleSelectMood(String mood) {
+    setState(() {
+      _currentMood = mood;
+      _showMoodSelector = false;
+      _currentTab = TabItem.home;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('오늘의 기분: $mood')));
+  }
+
   void _handleToggleMission(String id) {
     setState(() {
       _missions = _missions.map((mission) {
         if (mission.id == id) {
           final newCompleted = !mission.completed;
-          return Mission(
-              id: mission.id,
-              title: mission.title,
-              description: mission.description,
-              completed: newCompleted,
-              tag: mission.tag,
-              icon: mission.icon,
-              photo: mission.photo,
-              completedAt:
-              newCompleted ? DateTime.now().toIso8601String() : null);
+          return mission.copyWith(
+            completed: newCompleted,
+            completedAt: newCompleted ? DateTime.now().toIso8601String() : null,
+          );
         }
         return mission;
       }).toList();
@@ -93,23 +113,24 @@ class _AppShellState extends State<AppShell> {
     _updateTodayAttendance();
   }
 
-  // ==================  ↓↓↓ 수정된 부분 ↓↓↓ ==================
-  // 사진 '삭제' 기능을 위해 String? (nullable)로 변경
+  void _updateTodayAttendance() {
+    final completedCount = _missions.where((m) => m.completed).length;
+    final totalMissions = _missions.length;
+    final today = DateTime.now().toIso8601String().split("T")[0];
+
+    setState(() {
+      if (completedCount == totalMissions && totalMissions > 0) {
+        _attendanceData[today] = true;
+      } else {
+        _attendanceData.remove(today);
+      }
+    });
+  }
+
   void _handleAddPhoto(String missionId, String? photoPath) {
-    // ==================  ↑↑↑ 수정된 부분 ↑↑↑ ==================
     setState(() {
       _missions = _missions.map((m) {
-        return m.id == missionId
-            ? Mission(
-            id: m.id,
-            title: m.title,
-            description: m.description,
-            tag: m.tag,
-            icon: m.icon,
-            completed: m.completed,
-            completedAt: m.completedAt,
-            photo: photoPath) // null이 전달되면 사진이 삭제됨
-            : m;
+        return m.id == missionId ? m.copyWith(photo: photoPath) : m;
       }).toList();
     });
   }
@@ -121,42 +142,21 @@ class _AppShellState extends State<AppShell> {
     _updateTodayAttendance();
   }
 
-  void _handleOpenAddMissionModal() {
-    // TodayTabScreen에서 복사해 온 모달 열기 로직
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (context) {
-        return AddMissionModal(
-          customTags: _customTags,
-          onAddMission: _handleAddMission, // 실제 추가 로직
-          onAddCustomTag: _handleAddCustomTag,
-        );
-      },
-    );
-  }
-
-  void _handleAddMission(NewMissionData data) {
+  void _handleCreateMission(String title, String icon, String color, bool isPublic, String? time) {
     final newMission = Mission(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: data.title,
-      description: data.description,
-      tag: data.tagId, // TODO: ID로 태그 라벨 찾기
-      icon: getIconForTag(data.tagId),
+      id: "mission-${DateTime.now().millisecondsSinceEpoch}",
+      title: title,
+      description: "",
+      completed: false,
+      tag: "custom",
+      icon: icon,
+      color: color,
+      isPublic: isPublic,
+      time: time,
+      source: 'mine',
     );
     setState(() {
       _missions.add(newMission);
-    });
-    _updateTodayAttendance();
-  }
-
-  void _handleAddCustomTag(CustomTag newTag) {
-    setState(() {
-      _customTags.add(newTag);
     });
   }
 
@@ -167,145 +167,204 @@ class _AppShellState extends State<AppShell> {
         _addedMissionIds.add(originalId);
       }
     });
-    _updateTodayAttendance();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미션이 추가되었습니다!')));
   }
 
-  void _updateTodayAttendance() {
-    // .tsx의 handleToggleMission에 있던 출석 체크 로직
-    final completedCount = _missions.where((m) => m.completed).length;
-    final totalMissions = _missions.length;
-    final today = DateTime.now().toIso8601String().split("T")[0];
+  // [중요] 하루 마무리 핸들러: 완료된 미션을 _missionHistory에 저장
+  void _handleFinishDay() {
+    final now = DateTime.now();
+    final todayStr = now.toIso8601String().split("T")[0];
 
     setState(() {
-      if (completedCount == totalMissions && totalMissions > 0) {
-        _attendanceData[today] = true;
-      } else {
-        _attendanceData.remove(today); // false 대신 제거
-      }
+      // 1. 현재 화면에서 '완료됨'으로 체크된 미션들을 찾음
+      final completedToday = _missions.where((m) => m.completed).map((m) {
+        // completedAt이 비어있다면 현재 시간으로 채워줌
+        return m.copyWith(
+          completedAt: m.completedAt ?? now.toIso8601String(),
+        );
+      }).toList();
+
+      // 2. 히스토리 리스트에 추가 (누적 저장)
+      _missionHistory.addAll(completedToday);
+
+      // 3. 출석 데이터에 오늘 날짜 체크
+      _attendanceData[todayStr] = true;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('오늘 하루 기록이 저장되었습니다! 🎉'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
-  // Profile 핸들러
-  void _handleUpdateProfile(UserProfile newProfile) {
+  // 미션 정렬
+  void _handleSortMissions() {
     setState(() {
-      _userProfile = newProfile;
+      _missions.sort((a, b) {
+        if (a.completed != b.completed) return a.completed ? 1 : -1;
+        if (a.time != null && b.time == null) return -1;
+        if (a.time == null && b.time != null) return 1;
+        return a.title.compareTo(b.title);
+      });
     });
-    // TODO: toast.success("프로필이 업데이트되었습니다.");
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미션이 정렬되었습니다.')));
   }
 
-  void _handleLogout() {
-    // TODO: 로그아웃 로직
-    // TODO: toast.success("로그아웃되었습니다.");
-    // 여기서는 간단하게 로그인 화면으로 되돌립니다.
+  // 미션 리셋
+  void _handleResetMissions() {
     setState(() {
-      _isFirstTime = true;
-      _onboardingStep = OnboardingStep.login;
-      _missions = Mission.getSampleMissions(); // 미션 초기화
+      _missions = _missions.map((m) => m.copyWith(completed: false)).toList();
     });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('모든 미션이 초기화되었습니다.')));
   }
 
-  // Onboarding 핸들러
-  void _handleGuestLogin() {
-    setState(() => _onboardingStep = OnboardingStep.intro);
-  }
-
-  void _handleSocialLogin(String provider) {
-    print('$provider 로그인');
-    setState(() => _onboardingStep = OnboardingStep.intro);
-  }
-
-  void _handleIntroComplete() {
-    setState(() => _onboardingStep = OnboardingStep.personalityTest);
-  }
-
-  void _handlePersonalityTestComplete(PersonalityType result) {
-    setState(() {
-      _personalityType = result;
-      _onboardingStep = OnboardingStep.personalityResult;
-    });
-  }
-
-  void _handlePersonalityResultComplete(
-      String nickname, String personalityDesc) {
+  // --- Onboarding Handlers ---
+  void _handleNicknameSetupComplete(String nickname) {
     setState(() {
       _userProfile.nickname = nickname;
-      _userProfile.personalityType = personalityDesc;
-      _userProfile.profileEmoji = _personalityType == PersonalityType.introvert
-          ? "🌙"
-          : _personalityType == PersonalityType.extrovert
-          ? "☀️"
-          : "⚖️";
       _onboardingStep = OnboardingStep.completed;
-      _isFirstTime = false; // 온보딩 완료
+      _isFirstTime = false;
+      _showMoodSelector = true;
     });
-    // TODO: toast.success("환영합니다, ${nickname}님! 🎉");
   }
 
-  void _handleOnboardingBack() {
+  void _handlePersonalityResultComplete(String nickname, String personalityDesc) {
     setState(() {
-      switch (_onboardingStep) {
-        case OnboardingStep.intro:
-          _onboardingStep = OnboardingStep.login;
-          break;
-        case OnboardingStep.personalityTest:
-          _onboardingStep = OnboardingStep.intro;
-          break;
-        case OnboardingStep.personalityResult:
-          _onboardingStep = OnboardingStep.personalityTest;
-          break;
-        default:
-          break;
-      }
+      _onboardingStep = OnboardingStep.nicknameSetup;
     });
+  }
+
+  // --- UI Building ---
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(icon: Icons.home_rounded, label: "홈", isSelected: _currentTab == TabItem.home, onTap: () => setState(() => _currentTab = TabItem.home)),
+              GestureDetector(
+                onTap: () => setState(() => _currentTab = TabItem.browse),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 50, height: 50,
+                      decoration: BoxDecoration(
+                        color: _currentTab == TabItem.browse ? Colors.orange : Colors.orange.shade300,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
+                      ),
+                      child: const Icon(Icons.search, color: Colors.white, size: 28),
+                    ),
+                  ],
+                ),
+              ),
+              _buildNavItem(icon: Icons.menu_book_rounded, label: "기록", isSelected: _currentTab == TabItem.records || _currentTab == TabItem.profile, onTap: () => setState(() => _currentTab = TabItem.records)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({required IconData icon, required String label, required bool isSelected, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 28, color: isSelected ? Colors.orange : Colors.grey.shade400),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, color: isSelected ? Colors.orange : Colors.grey.shade400)),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // .tsx의 `if (isFirstTime && onboardingStep !== "completed")`
     if (_isFirstTime && _onboardingStep != OnboardingStep.completed) {
-      // 온보딩 플로우 렌더링
       switch (_onboardingStep) {
         case OnboardingStep.login:
-          return LoginScreen(
-            onGuestLogin: _handleGuestLogin,
-            onSocialLogin: (provider) => _handleSocialLogin(provider.toString()),
-          );
+          return LoginScreen(onGuestLogin: () => setState(() => _onboardingStep = OnboardingStep.intro), onSocialLogin: (_) {});
         case OnboardingStep.intro:
-          return OnboardingIntroScreen(
-            onComplete: _handleIntroComplete,
-            onBack: _handleOnboardingBack,
-          );
+          return OnboardingIntroScreen(onComplete: () => setState(() => _onboardingStep = OnboardingStep.personalityTest), onBack: () {});
         case OnboardingStep.personalityTest:
-          return PersonalityTestScreen(
-            onComplete: _handlePersonalityTestComplete,
-            onBack: _handleOnboardingBack,
-          );
+          return PersonalityTestScreen(onComplete: (type) { setState(() { _personalityType = type; _onboardingStep = OnboardingStep.personalityResult; });}, onBack: () {});
         case OnboardingStep.personalityResult:
-          return PersonalityResultScreen(
-            personalityType: _personalityType!,
-            onComplete: _handlePersonalityResultComplete,
-            onBack: _handleOnboardingBack,
-          );
+          return PersonalityResultScreen(personalityType: _personalityType!, onComplete: _handlePersonalityResultComplete, onBack: () {});
+        case OnboardingStep.nicknameSetup:
+          return NicknameSetupScreen(onComplete: _handleNicknameSetupComplete, onBack: () => setState(() => _onboardingStep = OnboardingStep.personalityResult));
         default:
-          return LoginScreen(
-              onGuestLogin: _handleGuestLogin, onSocialLogin: (p) {});
+          return Container();
       }
     }
 
-    // .tsx의 메인 앱 `return (...)`
-    return MainAppScaffold(
-      // 모든 상태와 핸들러를 MainAppScaffold로 전달
-      missions: _missions,
-      attendanceData: _attendanceData,
-      addedMissionIds: _addedMissionIds,
-      userProfile: _userProfile,
-      onToggleMission: _handleToggleMission,
-      onAddMission: _handleOpenAddMissionModal,
-      onAddPhoto: _handleAddPhoto, // String?을 받는 수정된 함수 전달
-      onDeleteMission: _handleDeleteMission,
-      onAddMissionFromBrowser: _handleAddMissionFromBrowser,
-      onUpdateProfile: _handleUpdateProfile,
-      onLogout: _handleLogout,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 80.0),
+              child: _buildBody(),
+            ),
+          ),
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomNavigationBar()),
+          if (_showMoodSelector)
+            Container(color: Colors.black54, child: MoodSelector(onSelectMood: _handleSelectMood)),
+        ],
+      ),
     );
+  }
+
+  Widget _buildBody() {
+    switch (_currentTab) {
+      case TabItem.home:
+        return HomeTabScreen(
+          missions: _missions,
+          onToggleMission: _handleToggleMission,
+          onAddMission: _handleCreateMission,
+          onDeleteMission: _handleDeleteMission,
+          onAddPhoto: _handleAddPhoto,
+
+          onFinishDay: _handleFinishDay, // [연결됨]
+          onSortMissions: _handleSortMissions,
+          onResetMissions: _handleResetMissions,
+
+          currentMood: _currentMood,
+          streakDays: _streakDays,
+        );
+      case TabItem.browse:
+        return MissionBrowserScreen(addedMissionIds: _addedMissionIds, onAddMission: _handleAddMissionFromBrowser);
+      case TabItem.records:
+      // [수정] missionHistory 전달
+        return HistoryTabScreen(
+          attendanceData: _attendanceData,
+          missionHistory: _missionHistory,
+          onOpenProfile: () => setState(() => _currentTab = TabItem.profile),
+          userProfile: _userProfile,
+        );
+      case TabItem.profile:
+        return ProfileScreen(userProfile: _userProfile, onBack: () => setState(() => _currentTab = TabItem.records), onLogout: () {});
+    }
   }
 }

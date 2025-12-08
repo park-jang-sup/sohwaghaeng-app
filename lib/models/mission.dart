@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제해주세요.
 
 class Mission {
   final String id;
@@ -7,47 +6,109 @@ class Mission {
   final String description;
   final bool completed;
   final String tag;
-  final IconData icon;
-  final String? photo;
-  final String? completedAt;
+  final String icon; // React의 아이콘 ID (예: 'sun', 'book')
+  final String color; // Hex String (예: '#FFD6A5')
+  final String? photo; // 사진 경로
+  final String? completedAt; // ISO8601 String
+  final String? time; // "HH:mm"
+  final bool isPublic;
+  final String source; // 'mine', 'imported', 'friend'
 
   Mission({
     required this.id,
     required this.title,
-    required this.description,
+    this.description = '',
     this.completed = false,
-    required this.tag,
-    required this.icon,
+    this.tag = 'daily',
+    this.icon = 'sun',
+    this.color = '#FFFFFF',
     this.photo,
     this.completedAt,
+    this.time,
+    this.isPublic = false,
+    this.source = 'mine',
   });
 
+  // 복사본 생성을 위한 copyWith 메서드
+  Mission copyWith({
+    String? id,
+    String? title,
+    String? description,
+    bool? completed,
+    String? tag,
+    String? icon,
+    String? color,
+    String? photo,
+    String? completedAt,
+    String? time,
+    bool? isPublic,
+    String? source,
+  }) {
+    return Mission(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      completed: completed ?? this.completed,
+      tag: tag ?? this.tag,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      photo: photo ?? this.photo,
+      completedAt: completedAt ?? this.completedAt,
+      time: time ?? this.time,
+      isPublic: isPublic ?? this.isPublic,
+      source: source ?? this.source,
+    );
+  }
+
+  // 아이콘 ID를 Flutter IconData로 변환하는 헬퍼 메서드
+  IconData get iconData {
+    switch (icon) {
+      case 'sun': return Icons.wb_sunny_rounded;
+      case 'book': return Icons.menu_book_rounded;
+      case 'leaf': return Icons.eco_rounded;
+      case 'heart': return Icons.favorite_rounded;
+      case 'coffee': return Icons.coffee_rounded;
+      case 'star': return Icons.star_rounded;
+      case 'tree': return Icons.park_rounded;
+      case 'zap': return Icons.bolt_rounded;
+      case 'flame': return Icons.local_fire_department_rounded;
+      case 'water_drop': return Icons.water_drop_rounded; // 추가됨
+      default: return Icons.wb_sunny_rounded;
+    }
+  }
+
+  // 샘플 데이터 생성
   static List<Mission> getSampleMissions() {
     return [
       Mission(
         id: '1',
-        title: '아침 산책하기',
-        description: '공원에서 30분간 신선한 공기를 마시며 걷습니다.',
-        tag: '건강',
-        // [수정 1] LucideIcons.sun -> Icons.wb_sunny
-        icon: Icons.wb_sunny,
+        title: '아침 물 한 잔 마시기',
+        description: '일어나자마자 미지근한 물 한 잔',
+        completed: false,
+        tag: 'wellness',
+        icon: 'water_drop',
+        color: '#A0C4FF', // Blue
+        source: 'mine',
       ),
       Mission(
         id: '2',
-        title: '좋아하는 책 1챕터 읽기',
-        description: '커피 한 잔과 함께 조용한 시간을 즐깁니다.',
-        tag: '휴식',
-        // [수정 2] LucideIcons.bookOpen -> Icons.menu_book
-        icon: Icons.menu_book,
+        title: '책 10페이지 읽기',
+        description: '자기 전 독서 습관',
+        completed: true,
+        tag: 'growth',
+        icon: 'book',
+        color: '#FFD6A5', // Orange
+        source: 'imported',
       ),
       Mission(
         id: '3',
-        title: '친구에게 감사 메시지 보내기',
-        description: '작은 일이라도 고마웠던 점을 문자로 전합니다.',
-        tag: '관계',
-        // [수정 3] LucideIcons.messageSquare -> Icons.chat_bubble_outline
-        icon: Icons.chat_bubble_outline,
-        completed: true,
+        title: '하늘 사진 찍기',
+        description: '점심 시간에 하늘 보기',
+        completed: false,
+        tag: 'daily',
+        icon: 'sun',
+        color: '#CAFFBF', // Green
+        source: 'mine',
       ),
     ];
   }

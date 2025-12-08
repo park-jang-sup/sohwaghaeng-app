@@ -4,23 +4,23 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 /// .tsx의 iconMap을 Dart의 Map으로 변환합니다.
 /// 태그(String)를 IconData로 매핑합니다.
 final Map<String, IconData> iconMap = {
-  'wellness': LucideIcons.sun,
-  'daily': LucideIcons.coffee,
-  'growth': LucideIcons.book,
-  'happiness': LucideIcons.smile,
-  'love': LucideIcons.heart,
-  'goal': LucideIcons.target,
-  'energy': LucideIcons.zap,
-  'achievement': LucideIcons.star,
-  'nature': LucideIcons.treePine,
+  'wellness': Icons.wb_sunny_outlined, // sun -> wb_sunny_outlined
+  'daily': Icons.coffee_outlined, // coffee -> coffee_outlined
+  'growth': Icons.book_outlined, // book -> book_outlined
+  'happiness': Icons.sentiment_satisfied_alt_outlined, // smile -> sentiment_satisfied_alt_outlined
+  'love': Icons.favorite_border, // heart -> favorite_border
+  'goal': Icons.ads_click, // target -> ads_click (유사한 아이콘)
+  'energy': Icons.bolt, // zap -> bolt
+  'achievement': Icons.star_border, // star -> star_border
+  'nature': Icons.cloud_outlined, // nature -> cloud_outlined (또는 park_outlined)
+  'mindful': Icons.spa_outlined, // leaf -> spa_outlined
+  'creative': Icons.music_note_outlined, // music -> music_note_outlined
+  'hobby': Icons.camera_alt_outlined, // camera -> camera_alt_outlined
+  'beauty': Icons.local_florist_outlined, // flower -> local_florist_outlined
+  'routine': Icons.access_time, // clock -> access_time
 };
 
 /// 태그 ID에 맞는 아이콘을 반환합니다.
-/// 커스텀 태그 아이콘도 여기서 관리할 수 있습니다.
 IconData getIconForTag(String tagId) {
-  // TODO: customTags 목록에서 tagId를 찾는 로직 추가
-  // (예: if (tagId.startsWith('custom-')) ... )
-
-  // 기본 맵에서 아이콘을 찾고, 없으면 기본 아이콘 반환
-  return iconMap[tagId] ?? LucideIcons.smile;
+  return iconMap[tagId] ?? Icons.sentiment_satisfied_alt_outlined; // 기본값
 }

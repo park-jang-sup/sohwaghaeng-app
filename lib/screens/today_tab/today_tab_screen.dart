@@ -485,8 +485,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                                     : Colors.orange.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(mission.icon,
-                                  size: 16, color: Colors.orange.shade700),
+                              child: Icon(mission.iconData, size: 16, color: Colors.orange.shade700),
+
                             ),
                             const SizedBox(width: 12),
                             Expanded(

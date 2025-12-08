@@ -1,82 +1,9 @@
 import 'package:flutter/material.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
-import 'package:b612_1/widgets/custom_back_button.dart';
-import 'package:b612_1/widgets/gradient_button.dart';
-import 'package:b612_1/widgets/personality_badge.dart';
 import 'package:b612_1/models/personality_type.dart';
 
-class PersonalityData {
-  final String title;
-  final String emoji;
-  final String description;
-  final List<String> traits;
-  final List<String> recommendedMissions;
-  final List<Color> gradientColors;
-  final Widget icon;
-
-  PersonalityData({
-    required this.title,
-    required this.emoji,
-    required this.description,
-    required this.traits,
-    required this.recommendedMissions,
-    required this.gradientColors,
-    required this.icon,
-  });
-}
-
-// [수정] LucideIcons -> Material Icons로 변경
-final Map<PersonalityType, PersonalityData> personalityDataMap = {
-  PersonalityType.introvert: PersonalityData(
-    title: "조용한 성찰가",
-    emoji: "🌙",
-    description: "혼자만의 시간을 소중히 여기며, 깊이 있는 경험을 추구하는 당신",
-    traits: ["깊이 있는 사고", "집중력 강함", "신중한 결정", "질 높은 인간관계"],
-    recommendedMissions: [
-      "혼자만의 산책하기",
-      "좋아하는 책 한 챕터 읽기",
-      "일기 쓰며 하루 되돌아보기",
-      "명상이나 요가하기"
-    ],
-    gradientColors: [const Color(0xFFEDE9FE), const Color(0xFFDBEAFE)],
-    // LucideIcons.sparkles -> Icons.auto_awesome (반짝임 효과)
-    icon: const Icon(Icons.auto_awesome, size: 24, color: Color(0xFFA855F7)),
-  ),
-  PersonalityType.extrovert: PersonalityData(
-    title: "에너지 넘치는 소통가",
-    emoji: "☀️",
-    description: "사람들과의 만남에서 에너지를 얻고, 활동적인 경험을 좋아하는 당신",
-    traits: ["활발한 소통", "에너지 넘침", "적극적 참여", "새로운 도전"],
-    recommendedMissions: [
-      "친구와 함께 새로운 카페 가기",
-      "모르는 사람에게 친절 베풀기",
-      "야외 활동 참여하기",
-      "새로운 사람들과 대화하기"
-    ],
-    gradientColors: [const Color(0xFFFFEDD5), const Color(0xFFFEF9C3)],
-    // LucideIcons.users -> Icons.groups (사람들)
-    icon: const Icon(Icons.groups, size: 24, color: Color(0xFFF97316)),
-  ),
-  PersonalityType.ambivert: PersonalityData(
-    title: "균형잡힌 실천가",
-    emoji: "⚖️",
-    description: "상황에 따라 유연하게 적응하며, 다양한 경험을 즐기는 당신",
-    traits: ["균형잡힌 성향", "상황 적응력", "다양한 관심사", "유연한 사고"],
-    recommendedMissions: [
-      "기분에 따라 혼자 또는 함께 시간보내기",
-      "새로운 취미 도전해보기",
-      "자연 속에서 힐링하기",
-      "창의적인 활동하기"
-    ],
-    gradientColors: [const Color(0xFFDCFCE7), const Color(0xFFCCFBF1)],
-    // LucideIcons.heart -> Icons.balance (균형/저울 아이콘 사용)
-    icon: const Icon(Icons.balance, size: 24, color: Color(0xFF22C55E)),
-  ),
-};
-
-class PersonalityResultScreen extends StatefulWidget {
+class PersonalityResultScreen extends StatelessWidget {
   final PersonalityType personalityType;
-  final Function(String nickname, String personalityDescription) onComplete;
+  final Function(String, String) onComplete; // 닉네임은 다음 단계에서 하므로 빈값 전달
   final VoidCallback onBack;
 
   const PersonalityResultScreen({
@@ -86,343 +13,170 @@ class PersonalityResultScreen extends StatefulWidget {
     required this.onBack,
   });
 
-  @override
-  State<PersonalityResultScreen> createState() =>
-      _PersonalityResultScreenState();
-}
-
-class _PersonalityResultScreenState extends State<PersonalityResultScreen> {
-  bool _isNicknameStep = false;
-  final TextEditingController _nicknameController = TextEditingController();
-  late PersonalityData _personality;
-  bool _isButtonEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _personality = personalityDataMap[widget.personalityType]!;
-
-    _nicknameController.addListener(() {
-      final isNotEmpty = _nicknameController.text.trim().isNotEmpty;
-      if (_isButtonEnabled != isNotEmpty) {
-        setState(() {
-          _isButtonEnabled = isNotEmpty;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _nicknameController.dispose();
-    super.dispose();
-  }
-
-  void _handleContinue() {
-    if (!_isNicknameStep) {
-      setState(() {
-        _isNicknameStep = true;
-      });
-    } else {
-      final nickname = _nicknameController.text.trim();
-      if (nickname.isNotEmpty) {
-        widget.onComplete(nickname, _personality.title);
-      }
+  // 성향별 데이터
+  Map<String, dynamic> _getData() {
+    switch (personalityType) {
+      case PersonalityType.introvert:
+        return {
+          'title': "조용한 성찰가",
+          'emoji': "🌙",
+          'desc': "혼자만의 시간을 소중히 여기며,\n깊이 있는 경험을 추구하는 당신",
+          'traits': ["깊이 있는 사고", "집중력 강함", "신중한 결정", "질 높은 인간관계"],
+          'missions': ["혼자만의 산책하기", "좋아하는 책 한 챕터 읽기", "일기 쓰기"],
+          'color': Colors.purple.shade50,
+          'iconColor': Colors.purple,
+        };
+      case PersonalityType.extrovert:
+        return {
+          'title': "에너지 넘치는 소통가",
+          'emoji': "☀️",
+          'desc': "사람들과의 만남에서 에너지를 얻고,\n활동적인 경험을 좋아하는 당신",
+          'traits': ["활발한 소통", "에너지 넘침", "적극적 참여", "새로운 도전"],
+          'missions': ["친구와 카페 가기", "모르는 사람에게 친절 베풀기", "야외 활동"],
+          'color': Colors.orange.shade50,
+          'iconColor': Colors.orange,
+        };
+      case PersonalityType.ambivert:
+      default:
+        return {
+          'title': "균형잡힌 실천가",
+          'emoji': "⚖️",
+          'desc': "상황에 따라 유연하게 적응하며,\n다양한 경험을 즐기는 당신",
+          'traits': ["균형잡힌 성향", "상황 적응력", "다양한 관심사", "유연한 사고"],
+          'missions': ["새로운 취미 도전", "자연 속 힐링", "창의적 활동"],
+          'color': Colors.green.shade50,
+          'iconColor': Colors.green,
+        };
     }
-  }
-
-  void _handleBackFromNickname() {
-    setState(() {
-      _isNicknameStep = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final data = _getData();
+
     return Scaffold(
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFE5D6), Color(0xFFFFFFFF)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFE5D6), Colors.white],
           ),
         ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _isNicknameStep
-                  ? _buildNicknameStep(context, _personality)
-                  : _buildResultStep(context, _personality),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+                const Text("테스트 완료!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const Text("당신의 성향을 분석했어요", style: TextStyle(color: Colors.grey)),
+
+                const SizedBox(height: 32),
+
+                // 결과 카드
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))
+                      ],
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: data['color'],
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(data['emoji'], style: const TextStyle(fontSize: 20)),
+                                const SizedBox(width: 8),
+                                Text(data['title'], style: TextStyle(color: data['iconColor'], fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(data['desc'], textAlign: TextAlign.center, style: const TextStyle(height: 1.5, color: Colors.black87)),
+
+                          const SizedBox(height: 32),
+
+                          // 특징
+                          Align(alignment: Alignment.centerLeft, child: Text("주요 특징", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade800))),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: (data['traits'] as List<String>).map((t) => Chip(
+                              label: Text(t, style: const TextStyle(fontSize: 12)),
+                              backgroundColor: Colors.grey.shade100,
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            )).toList(),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // 추천 미션
+                          Align(alignment: Alignment.centerLeft, child: Text("추천 소확행", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade800))),
+                          const SizedBox(height: 12),
+                          ...(data['missions'] as List<String>).map((m) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_outline, size: 16, color: Colors.orange),
+                                const SizedBox(width: 8),
+                                Text(m, style: const TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                          )).toList(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // 버튼
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // 닉네임 설정은 다음 화면(NicknameSetupScreen)에서 하므로
+                      // 여기서는 빈 값을 넘겨서 AppShell의 다음 단계로 진행시킵니다.
+                      onComplete("", data['desc']);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 4,
+                    ),
+                    child: const Text("닉네임 설정하기", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildResultStep(BuildContext context, PersonalityData personality) {
-    return Column(
-      key: const ValueKey('result'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment: Alignment.topLeft,
-          child: CustomBackButton(
-            onPressed: widget.onBack,
-          ),
-        ),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildEmojiHeader(
-                  "테스트 완료!",
-                  "당신의 성향을 분석했어요",
-                  personality.emoji,
-                  size: 96.0,
-                  emojiSize: 40.0
-              ),
-              const SizedBox(height: 32.0),
-              Card(
-                elevation: 8.0,
-                shadowColor: Colors.black.withOpacity(0.1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-                clipBehavior: Clip.antiAlias,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: Alignment.center,
-                        child: PersonalityBadge(
-                          icon: personality.icon,
-                          title: personality.title,
-                          gradientColors: personality.gradientColors,
-                          paddingHorizontal: 16.0,
-                          paddingVertical: 10.0,
-                        ),
-                      ),
-                      const SizedBox(height: 16.0),
-                      Text(
-                        personality.description,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14.0),
-                      ),
-                      const SizedBox(height: 24.0),
-
-                      _buildSectionTitle("주요 특징"),
-                      const SizedBox(height: 12.0),
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 5,
-                        children: personality.traits.map(_buildTraitItem).toList(),
-                      ),
-
-                      const SizedBox(height: 24.0),
-
-                      _buildSectionTitle("추천 소확행"),
-                      const SizedBox(height: 12.0),
-                      Column(
-                        children: personality.recommendedMissions
-                            .take(3)
-                            .map(_buildMissionItem)
-                            .toList(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32.0),
-            ],
-          ),
-        ),
-        GradientButton(
-          text: "닉네임 설정하기",
-          onPressed: _handleContinue,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNicknameStep(BuildContext context, PersonalityData personality) {
-    return Column(
-      key: const ValueKey('nickname'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment: Alignment.topLeft,
-          child: CustomBackButton(
-            onPressed: _handleBackFromNickname,
-          ),
-        ),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildEmojiHeader(
-                  "마지막 단계예요!",
-                  "어떻게 불러드릴까요?",
-                  personality.emoji,
-                  size: 80.0,
-                  emojiSize: 32.0
-              ),
-              const SizedBox(height: 32.0),
-
-              Card(
-                elevation: 8.0,
-                shadowColor: Colors.black.withOpacity(0.1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-                clipBehavior: Clip.antiAlias,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '닉네임',
-                        style: TextStyle(
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade700
-                        ),
-                      ),
-                      const SizedBox(height: 8.0),
-                      TextField(
-                        controller: _nicknameController,
-                        maxLength: 20,
-                        decoration: InputDecoration(
-                          hintText: "닉네임을 입력해주세요",
-                          counterText: "",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                            borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2.0),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8.0),
-                      Text(
-                        '최대 20자까지 입력 가능해요',
-                        style: TextStyle(fontSize: 12.0, color: Colors.grey.shade500),
-                      ),
-
-                      const SizedBox(height: 24.0),
-
-                      PersonalityBadge(
-                        icon: personality.icon,
-                        title: personality.title,
-                        gradientColors: personality.gradientColors,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        GradientButton(
-          text: "소확행 시작하기! 🌟",
-          onPressed: _handleContinue,
-          disabled: !_isButtonEnabled,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmojiHeader(String title, String subtitle, String emoji, {double size = 96.0, double emojiSize = 40.0}) {
-    return Column(
-      children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 15.0,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(emoji, style: TextStyle(fontSize: emojiSize)),
-          ),
-        ),
-        const SizedBox(height: 24.0),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 24.0,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade800,
-          ),
-        ),
-        const SizedBox(height: 8.0),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 16.0,
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.grey.shade800,
-          fontSize: 14.0
-      ),
-    );
-  }
-
-  Widget _buildTraitItem(String trait) {
-    return Row(
-      children: [
-        Container(
-          width: 8.0,
-          height: 8.0,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF9A825),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8.0),
-        Text(
-          trait,
-          style: TextStyle(fontSize: 12.0, color: Colors.grey.shade700),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMissionItem(String mission) {
-    return Row(
-      children: [
-        const Text("✨", style: TextStyle(fontSize: 12.0)),
-        const SizedBox(width: 8.0),
-        Text(
-          mission,
-          style: TextStyle(fontSize: 12.0, color: Colors.grey.shade700),
-        ),
-      ],
     );
   }
 }
