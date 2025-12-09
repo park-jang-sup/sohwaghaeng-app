@@ -216,8 +216,8 @@ class _AppShellState extends State<AppShell> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미션이 초기화되었습니다.')));
   }
 
-  // --- 온보딩 완료 핸들러 ---
-  void _finishOnboarding(String nickname) async {
+  // --- ✅ 수정: 온보딩 완료 핸들러 (async로 변경) ---
+  Future<void> _finishOnboarding(String nickname) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await DatabaseService().saveSocialUser(

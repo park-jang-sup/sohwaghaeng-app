@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 사용하지 않으므로 주석 처리 혹은 삭제
 import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/widgets/planet_progress_indicator.dart';
+import 'package:b612_1/services/database_service.dart';
 
 class TodayTabScreen extends StatefulWidget {
   final List<Mission> missions;
@@ -36,6 +36,9 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
   final ImagePicker _picker = ImagePicker();
   String _currentDateFormatted = '';
 
+  // ✅ 업로드 로딩 상태 추가
+  String? _uploadingMissionId;
+
   @override
   void initState() {
     super.initState();
@@ -43,10 +46,54 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
         DateFormat.yMMMMd('ko_KR').add_EEEE().format(DateTime.now());
   }
 
+  // ✅ 사진 추가 (업로드 로딩 + Storage 업로드)
   Future<void> _onAddPhoto(String missionId) async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      maxHeight: 1080,
+      imageQuality: 85,
+    );
+
+    if (image == null) return;
+
+    setState(() => _uploadingMissionId = missionId);
+
+    try {
+      // Firebase Storage에 업로드 시도
+      final url = await DatabaseService().uploadImage(image.path);
+
+      if (url != null) {
+        widget.onAddPhoto(missionId, url);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('사진이 저장되었습니다!'),
+              backgroundColor: Colors.green.shade400,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        // 업로드 실패 시 로컬 경로라도 저장
+        widget.onAddPhoto(missionId, image.path);
+      }
+    } catch (e) {
+      // 에러 발생 시 로컬 경로 저장
       widget.onAddPhoto(missionId, image.path);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('업로드 실패: 로컬에 저장됨'),
+            backgroundColor: Colors.orange.shade400,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingMissionId = null);
+      }
     }
   }
 
@@ -108,6 +155,15 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     }
   }
 
+  // ✅ URL vs 로컬 파일 자동 구분
+  ImageProvider _getImageProvider(String path) {
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    } else {
+      return FileImage(File(path));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final completedCount = widget.missions.where((m) => m.completed).length;
@@ -118,7 +174,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: widget.onAddMission,
         backgroundColor: Colors.orange,
-        // [수정 3] 미션 추가 아이콘 변경 (LucideIcons.plus -> Icons.add)
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       body: Container(
@@ -151,11 +206,21 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                   const SizedBox(height: 16),
                   if (isCompleted)
                     Center(
-                      child: Text(
-                        "🌟 행성이 완전히 채워졌습니다! 🌟",
-                        style: TextStyle(
-                          color: Colors.orange.shade700,
-                          fontWeight: FontWeight.w600,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "🌟 행성이 완전히 채워졌습니다! 🌟",
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -277,9 +342,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
             border: Border.all(
               color: borderColor,
               width: 2,
-              style: (isToday && !completed)
-                  ? BorderStyle.solid
-                  : BorderStyle.solid,
             ),
           ),
           child: completed
@@ -318,7 +380,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           side: BorderSide(
             color: Colors.grey.shade200,
             width: 2,
-            style: BorderStyle.solid,
           ),
         ),
         elevation: 0,
@@ -328,7 +389,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           child: Center(
             child: Column(
               children: [
-                // [수정] 빈 상태 아이콘 (LucideIcons.smile -> Icons.sentiment_satisfied_alt)
                 Icon(Icons.sentiment_satisfied_alt,
                     size: 40, color: Colors.grey.shade400),
                 const SizedBox(height: 8),
@@ -355,45 +415,41 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     final bool hasPhoto = mission.photo != null && mission.photo!.isNotEmpty;
     final bool isExpanded = _expandedMissions.contains(mission.id);
     final bool isDeleteMode = _showDeleteButtons.contains(mission.id);
+    final bool isUploading = _uploadingMissionId == mission.id;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Dismissible(
         key: ValueKey(mission.id),
         direction: DismissDirection.endToStart,
-
-        // [수정 1] confirmDismiss 추가: 스와이프 시 삭제할지 말지 먼저 물어봅니다.
         confirmDismiss: (direction) async {
           return await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('미션을 삭제하시겠습니까?'),
-              content: Text('"${mission.title}"을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.'),
+              content:
+              Text('"${mission.title}"을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.'),
               actions: [
                 TextButton(
                   child: const Text('취소'),
                   onPressed: () {
-                    Navigator.pop(context, false); // false 반환 (삭제 취소)
+                    Navigator.pop(context, false);
                   },
                 ),
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   child: const Text('삭제'),
                   onPressed: () {
-                    Navigator.pop(context, true); // true 반환 (삭제 진행)
+                    Navigator.pop(context, true);
                   },
                 )
               ],
             ),
           );
         },
-
-        // [수정 2] onDismissed 수정: confirmDismiss가 true일 때만 실행됩니다.
-        // 여기서는 UI 갱신 없이 데이터만 바로 삭제 요청하면 됩니다.
         onDismissed: (_) {
           widget.onDeleteMission(mission.id);
         },
-
         background: Container(
           decoration: BoxDecoration(
             color: Colors.red.shade500,
@@ -411,12 +467,10 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           ),
         ),
         child: GestureDetector(
-          // ... 기존 코드 동일 ...
           onLongPress: () => _toggleDeleteMode(mission.id),
           onDoubleTap: () => _toggleExpandMission(mission.id),
           onTap: _hideAllDeleteModes,
           child: Card(
-            // ... 기존 Card 코드 동일 ...
             elevation: isCompleted ? 1 : 4,
             shadowColor: Colors.black.withOpacity(0.1),
             shape: RoundedRectangleBorder(
@@ -434,9 +488,10 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               decoration: BoxDecoration(
+                // ✅ URL vs 로컬 파일 자동 구분
                 image: (isCompleted && hasPhoto)
                     ? DecorationImage(
-                  image: FileImage(File(mission.photo!)),
+                  image: _getImageProvider(mission.photo!),
                   fit: BoxFit.cover,
                 )
                     : null,
@@ -466,9 +521,10 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                               onChanged: (_) =>
                                   widget.onToggleMission(mission.id),
                               activeColor: Colors.orange,
+                              // ✅ deprecated MaterialStateProperty → WidgetStateProperty
                               fillColor:
-                              MaterialStateProperty.resolveWith((states) {
-                                if (states.contains(MaterialState.selected)) {
+                              WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
                                   return Colors.orange;
                                 }
                                 return hasPhoto
@@ -485,8 +541,8 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                                     : Colors.orange.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(mission.iconData, size: 16, color: Colors.orange.shade700),
-
+                              child: Icon(mission.iconData,
+                                  size: 16, color: Colors.orange.shade700),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -519,8 +575,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                               ),
                               onPressed: () {
                                 if (isDeleteMode) {
-                                  // 카드 내 버튼으로 삭제 시에는 confirmDismiss를 타지 않으므로
-                                  // 기존 다이얼로그 로직을 별도로 호출해야 합니다.
                                   _showDeleteDialog(mission);
                                 } else {
                                   _toggleDeleteMode(mission.id);
@@ -559,7 +613,17 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
                                   ),
                                 ),
                               ),
-                              if (isCompleted && !isDeleteMode)
+                              // ✅ 업로드 로딩 표시
+                              if (isUploading)
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.orange,
+                                  ),
+                                )
+                              else if (isCompleted && !isDeleteMode)
                                 hasPhoto
                                     ? _buildPhotoActionButton(
                                   icon: Icons.close,
@@ -614,7 +678,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
   }) {
     if (text != null) {
       return OutlinedButton.icon(
-        // [수정] 아이콘 사이즈 조정 (14 -> 18)
         icon: Icon(icon, size: 18),
         label: Text(text, style: const TextStyle(fontSize: 12)),
         onPressed: onPressed,
@@ -623,7 +686,6 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
           backgroundColor: Colors.white.withOpacity(0.5),
           side: BorderSide(
             color: Colors.grey.shade400,
-            style: BorderStyle.solid,
           ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -632,7 +694,7 @@ class _TodayTabScreenState extends State<TodayTabScreen> {
     }
 
     return IconButton(
-      icon: Icon(icon, size: 20), // [수정] 닫기 버튼 사이즈 약간 키움
+      icon: Icon(icon, size: 20),
       onPressed: onPressed,
       style: IconButton.styleFrom(
         backgroundColor: Colors.white.withOpacity(0.9),

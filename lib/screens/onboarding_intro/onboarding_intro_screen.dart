@@ -25,17 +25,20 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
     {
       'title': "오늘 탭",
       'description': "오늘의\n소소한 행복\n미션을\n살펴보세요",
-      'highlight': "오늘"
+      'highlight': "오늘",
+      'icon': Icons.today_rounded,
     },
     {
       'title': "탐색 탭",
       'description': "다른 사람의\n미션을\n탐색해보세요",
-      'highlight': "탐색"
+      'highlight': "탐색",
+      'icon': Icons.explore_rounded,
     },
     {
       'title': "기록 탭",
       'description': "나의 기록을\n모아봐요\n갤러리를 공유해\n보세요",
-      'highlight': "기록"
+      'highlight': "기록",
+      'icon': Icons.photo_library_rounded,
     },
   ];
 
@@ -46,7 +49,12 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
   }
 
   void _startAsteroidAnimation() {
+    _animationTimer?.cancel(); // 기존 타이머 취소
     _animationTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         if (_asteroidProgress >= 1.0) {
           _asteroidProgress = 1.0;
@@ -124,11 +132,13 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: 8,
+                            width: index == _currentStep ? 24 : 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: index == _currentStep ? Colors.orange : Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(4),
+                              color: index == _currentStep
+                                  ? Colors.orange
+                                  : Colors.grey.shade300,
                             ),
                           );
                         }),
@@ -146,13 +156,21 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                       RichText(
                         textAlign: TextAlign.center,
                         text: TextSpan(
-                          style: const TextStyle(fontSize: 28, height: 1.5, color: Colors.black87, fontFamily: 'Pretendard'),
-                          children: _parseDescription(currentIntro['description'], currentIntro['highlight']),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            height: 1.5,
+                            color: Colors.black87,
+                            fontFamily: 'Pretendard',
+                          ),
+                          children: _parseDescription(
+                            currentIntro['description'],
+                            currentIntro['highlight'],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 40),
 
-                      // 목업 이미지 영역 (주황색 박스)
+                      // 목업 이미지 영역
                       Container(
                         height: 200,
                         width: double.infinity,
@@ -171,6 +189,13 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                             )
                           ],
                         ),
+                        child: Center(
+                          child: Icon(
+                            currentIntro['icon'] as IconData,
+                            size: 80,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
                       ),
 
                       const Spacer(),
@@ -183,15 +208,39 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                           onPressed: _handleNext,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text("다음", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _currentStep == _introSteps.length - 1
+                                    ? "완료"
+                                    : "다음",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_forward,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: widget.onComplete,
-                        child: const Text("건너뛰기", style: TextStyle(color: Colors.grey)),
+                        child: const Text(
+                          "건너뛰기",
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       )
                     ],
                   ),
@@ -210,8 +259,14 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
 
     return [
       TextSpan(text: parts[0]),
-      TextSpan(text: highlight, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-      TextSpan(text: parts[1]),
+      TextSpan(
+        text: highlight,
+        style: const TextStyle(
+          color: Colors.orange,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      if (parts.length > 1) TextSpan(text: parts[1]),
     ];
   }
 
@@ -240,14 +295,27 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("행복을 모아", style: TextStyle(fontSize: 24)),
+                    const Text(
+                      "행복을 모아",
+                      style: TextStyle(fontSize: 24),
+                    ),
                     const SizedBox(height: 8),
                     RichText(
                       text: const TextSpan(
-                        style: TextStyle(fontSize: 24, color: Colors.black87, fontFamily: 'Pretendard'),
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Colors.black87,
+                          fontFamily: 'Pretendard',
+                        ),
                         children: [
                           TextSpan(text: "여러분의 "),
-                          TextSpan(text: "소행성", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                          TextSpan(
+                            text: "소행성",
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           TextSpan(text: "을 꾸며보세요"),
                         ],
                       ),
@@ -265,7 +333,10 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                             shape: BoxShape.circle,
                             color: Colors.white.withOpacity(0.5),
                             boxShadow: [
-                              BoxShadow(color: Colors.orange.withOpacity(0.2), blurRadius: 40)
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.2),
+                                blurRadius: 40,
+                              )
                             ],
                           ),
                         ),
@@ -273,15 +344,27 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                         ClipOval(
                           child: Stack(
                             children: [
-                              Container(width: 240, height: 240, color: Colors.orange.shade100),
+                              Container(
+                                width: 240,
+                                height: 240,
+                                color: Colors.orange.shade100,
+                              ),
                               Positioned(
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                // 높이를 애니메이션 값에 따라 조절
                                 height: 240 * _asteroidProgress,
                                 child: Container(
-                                  color: Colors.orange.shade300,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.orange.shade200,
+                                        Colors.orange.shade400,
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -293,12 +376,41 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                           height: 240,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.orange.shade200, width: 4),
+                            border: Border.all(
+                              color: Colors.orange.shade200,
+                              width: 4,
+                            ),
                           ),
                         ),
+                        // 중앙 아이콘
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 60,
+                          color: _asteroidProgress > 0.5
+                              ? Colors.white
+                              : Colors.orange.shade300,
+                        ),
                         // 반짝이 (완료 시)
-                        if (_asteroidProgress > 0.8)
-                          const Positioned(top: 20, right: 40, child: Icon(Icons.star, color: Colors.yellow, size: 30)),
+                        if (_asteroidProgress > 0.8) ...[
+                          const Positioned(
+                            top: 20,
+                            right: 40,
+                            child: Icon(
+                              Icons.star,
+                              color: Colors.yellow,
+                              size: 30,
+                            ),
+                          ),
+                          const Positioned(
+                            top: 60,
+                            left: 30,
+                            child: Icon(
+                              Icons.star,
+                              color: Colors.yellow,
+                              size: 20,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
 
@@ -313,13 +425,22 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                           onPressed: widget.onComplete,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             elevation: 4,
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Text("성향 테스트", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                            children: [
+                              Text(
+                                "성향 테스트",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               SizedBox(width: 8),
                               Icon(Icons.chevron_right, color: Colors.white),
                             ],
@@ -328,7 +449,10 @@ class _OnboardingIntroScreenState extends State<OnboardingIntroScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text("나에게 맞는 소확행을 찾기 위한 간단한 질문이에요", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text(
+                      "나에게 맞는 소확행을 찾기 위한 간단한 질문이에요",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),

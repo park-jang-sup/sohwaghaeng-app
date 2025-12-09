@@ -3,7 +3,7 @@ import 'package:b612_1/models/personality_type.dart';
 
 class PersonalityResultScreen extends StatelessWidget {
   final PersonalityType personalityType;
-  final Function(String, String) onComplete; // 닉네임은 다음 단계에서 하므로 빈값 전달
+  final Function(String, String) onComplete;
   final VoidCallback onBack;
 
   const PersonalityResultScreen({
@@ -37,7 +37,6 @@ class PersonalityResultScreen extends StatelessWidget {
           'iconColor': Colors.orange,
         };
       case PersonalityType.ambivert:
-      default:
         return {
           'title': "균형잡힌 실천가",
           'emoji': "⚖️",
@@ -77,8 +76,14 @@ class PersonalityResultScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 20),
-                const Text("테스트 완료!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const Text("당신의 성향을 분석했어요", style: TextStyle(color: Colors.grey)),
+                const Text(
+                  "테스트 완료!",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  "당신의 성향을 분석했어요",
+                  style: TextStyle(color: Colors.grey),
+                ),
 
                 const SizedBox(height: 32),
 
@@ -91,61 +96,121 @@ class PersonalityResultScreen extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        )
                       ],
                     ),
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
+                          // 성향 타입 배지
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: data['color'],
+                              color: data['color'] as Color,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(data['emoji'], style: const TextStyle(fontSize: 20)),
+                                Text(
+                                  data['emoji'] as String,
+                                  style: const TextStyle(fontSize: 20),
+                                ),
                                 const SizedBox(width: 8),
-                                Text(data['title'], style: TextStyle(color: data['iconColor'], fontWeight: FontWeight.bold)),
+                                Text(
+                                  data['title'] as String,
+                                  style: TextStyle(
+                                    color: data['iconColor'] as Color,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Text(data['desc'], textAlign: TextAlign.center, style: const TextStyle(height: 1.5, color: Colors.black87)),
+
+                          // 설명
+                          Text(
+                            data['desc'] as String,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              height: 1.5,
+                              color: Colors.black87,
+                            ),
+                          ),
 
                           const SizedBox(height: 32),
 
                           // 특징
-                          Align(alignment: Alignment.centerLeft, child: Text("주요 특징", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade800))),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "주요 특징",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: (data['traits'] as List<String>).map((t) => Chip(
-                              label: Text(t, style: const TextStyle(fontSize: 12)),
+                            children: (data['traits'] as List<String>)
+                                .map((t) => Chip(
+                              label: Text(
+                                t,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                               backgroundColor: Colors.grey.shade100,
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
-                            )).toList(),
+                            ))
+                                .toList(),
                           ),
 
                           const SizedBox(height: 24),
 
                           // 추천 미션
-                          Align(alignment: Alignment.centerLeft, child: Text("추천 소확행", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade800))),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "추천 소확행",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 12),
-                          ...(data['missions'] as List<String>).map((m) => Padding(
+                          ...(data['missions'] as List<String>)
+                              .map((m) => Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
                               children: [
-                                const Icon(Icons.check_circle_outline, size: 16, color: Colors.orange),
+                                const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 16,
+                                  color: Colors.orange,
+                                ),
                                 const SizedBox(width: 8),
-                                Text(m, style: const TextStyle(fontSize: 13)),
+                                Text(
+                                  m,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
                               ],
                             ),
-                          )).toList(),
+                          ))
+                              .toList(),
                         ],
                       ),
                     ),
@@ -160,16 +225,31 @@ class PersonalityResultScreen extends StatelessWidget {
                   height: 56,
                   child: ElevatedButton(
                     onPressed: () {
-                      // 닉네임 설정은 다음 화면(NicknameSetupScreen)에서 하므로
-                      // 여기서는 빈 값을 넘겨서 AppShell의 다음 단계로 진행시킵니다.
-                      onComplete("", data['desc']);
+                      // 닉네임 설정은 다음 화면(NicknameSetupScreen)에서 진행
+                      onComplete("", data['title'] as String);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       elevation: 4,
                     ),
-                    child: const Text("닉네임 설정하기", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "닉네임 설정하기",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                      ],
+                    ),
                   ),
                 ),
               ],

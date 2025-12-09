@@ -100,21 +100,29 @@ class MyApp extends StatelessWidget {
                 print("❌ 게스트 로그인 실패");
               }
             },
+            // ✅ 수정: bool 값을 반환하도록 수정
             onSocialLogin: (provider) async {
               bool success = false;
 
-              if (provider == 'google') {
-                final result = await AuthService().signInWithGoogle();
-                success = result != null;
-              } else if (provider == 'naver') {
-                success = await AuthService().signInWithNaver();
-              } else if (provider == 'kakao') {
-                success = await AuthService().signInWithKakao();
+              try {
+                if (provider == 'google') {
+                  final result = await AuthService().signInWithGoogle();
+                  success = result != null;
+                } else if (provider == 'naver') {
+                  success = await AuthService().signInWithNaver();
+                } else if (provider == 'kakao') {
+                  success = await AuthService().signInWithKakao();
+                }
+
+                if (!success) {
+                  print("❌ $provider 로그인 실패");
+                }
+              } catch (e) {
+                print("❌ $provider 로그인 오류: $e");
+                success = false;
               }
 
-              if (!success) {
-                print("❌ $provider 로그인 실패");
-              }
+              return success; // ✅ bool 반환 추가
             },
           );
         },
