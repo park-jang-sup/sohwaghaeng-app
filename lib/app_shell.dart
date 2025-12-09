@@ -62,18 +62,57 @@ class _AppShellState extends State<AppShell> {
   Map<String, bool> _attendanceData = {};
   Set<String> _addedMissionIds = <String>{};
 
+  // ✅ 초기값은 로딩 상태로 설정
   UserProfile _userProfile = UserProfile(
-    nickname: "소확행러",
+    nickname: "로딩중...",
     personalityType: "꾸준한 실천가",
-    email: "user@example.com",
+    email: "",
     profileEmoji: "🌟",
-    bio: "소확행 실천러",
+    bio: "",
+    isGuest: true,
   );
 
   @override
   void initState() {
     super.initState();
     _generateDummyAttendance();
+    _loadUserProfile();  // ✅ 사용자 정보 로드 추가
+  }
+
+  // ✅ Firebase에서 사용자 정보 로드
+  Future<void> _loadUserProfile() async {
+    try {
+      final userData = await DatabaseService().getCurrentUserData();
+      final currentUser = FirebaseAuth.instance.currentUser;
+
+      if (userData != null && currentUser != null) {
+        setState(() {
+          _userProfile = UserProfile(
+            nickname: userData['nickname'] ?? '사용자',
+            personalityType: userData['personality_type'] ?? '꾸준한 실천가',
+            email: userData['email'] ?? currentUser.email ?? '',
+            profileEmoji: '🌟',
+            bio: userData['bio'] ?? '',
+            isGuest: false,  // ✅ 로그인 상태!
+          );
+        });
+        print("✅ 사용자 프로필 로드 완료: ${_userProfile.nickname}");
+      } else if (currentUser != null) {
+        // Firestore에 데이터가 없지만 로그인은 되어있는 경우
+        setState(() {
+          _userProfile = UserProfile(
+            nickname: currentUser.displayName ?? '사용자',
+            personalityType: '꾸준한 실천가',
+            email: currentUser.email ?? '',
+            profileEmoji: '🌟',
+            bio: '',
+            isGuest: false,
+          );
+        });
+      }
+    } catch (e) {
+      print("❌ 사용자 프로필 로드 실패: $e");
+    }
   }
 
   void _generateDummyAttendance() {
@@ -108,7 +147,6 @@ class _AppShellState extends State<AppShell> {
 
       if (doc.exists) {
         final data = doc.data();
-        // ✅ String/bool 둘 다 처리
         final currentCompleted = data?['completed'] == true || data?['completed'] == 'true';
         await FirebaseFirestore.instance
             .collection('missions')
@@ -210,8 +248,12 @@ class _AppShellState extends State<AppShell> {
 
   void _handleResetMissions() async {
     try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
       final snapshot = await FirebaseFirestore.instance
           .collection('missions')
+          .where('user_id', isEqualTo: userId)
           .where('completed', isEqualTo: true)
           .get();
 
@@ -418,7 +460,6 @@ class _AppShellState extends State<AppShell> {
                 id: doc.id,
                 title: data['title'] ?? '제목 없음',
                 description: data['description'] ?? '',
-                // ✅ 핵심 수정: String이든 bool이든 처리
                 completed: data['completed'] == true || data['completed'] == 'true',
                 tag: data['tag'] ?? 'custom',
                 icon: 'star',

@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // ✅ 현재 로그인한 사용자 UID 가져오기
+  String? get currentUserId => _auth.currentUser?.uid;
 
   // ===============================================================
   // 1. 구글 유저 정보 저장
@@ -35,7 +39,11 @@ class DatabaseService {
     required String socialType,
   }) async {
     try {
-      await _db.collection('users').doc(uid).set({
+      // ✅ Firebase Auth UID로 저장 (소셜 UID와 매핑)
+      final firebaseUid = _auth.currentUser?.uid;
+
+      await _db.collection('users').doc(firebaseUid).set({
+        'social_uid': uid,
         'email': email,
         'nickname': nickname,
         'photo_url': photoUrl,
@@ -54,19 +62,37 @@ class DatabaseService {
     return await _db.collection('users').doc(uid).get();
   }
 
-  // ===============================================================
-  // 3. 미션 관련 (✅ 실시간 동기화 추가!)
-  // ===============================================================
+  // ✅ [조회] 현재 로그인한 사용자 정보 가져오기
+  Future<Map<String, dynamic>?> getCurrentUserData() async {
+    if (currentUserId == null) return null;
 
-  // ✅ [실시간 구독] 미션 목록 스트림으로 가져오기
-  Stream<QuerySnapshot> getMissionsStream() {
-    return _db
-        .collection('missions')
-        .orderBy('timestamp', descending: true)
-        .snapshots(); // ← 실시간 구독!
+    try {
+      final doc = await _db.collection('users').doc(currentUserId).get();
+      return doc.data();
+    } catch (e) {
+      print("❌ 사용자 정보 조회 실패: $e");
+      return null;
+    }
   }
 
-  // [추가] 미션 추가하기
+  // ===============================================================
+  // 3. 미션 관련 (✅ 사용자별 분리!)
+  // ===============================================================
+
+  // ✅ [실시간 구독] 현재 사용자의 미션만 가져오기
+  Stream<QuerySnapshot> getMissionsStream() {
+    if (currentUserId == null) {
+      return const Stream.empty();
+    }
+
+    return _db
+        .collection('missions')
+        .where('user_id', isEqualTo: currentUserId)  // ✅ 사용자 필터 추가!
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  // ✅ [추가] 미션 추가하기 (사용자 ID 포함)
   Future<void> addMission({
     required String title,
     required String description,
@@ -74,12 +100,19 @@ class DatabaseService {
     required int iconCode,
     String? author,
   }) async {
+    if (currentUserId == null) {
+      print("❌ 로그인이 필요합니다.");
+      return;
+    }
+
     try {
       await _db.collection('missions').add({
+        'user_id': currentUserId,  // ✅ 사용자 ID 추가!
         'title': title,
         'description': description,
         'tag': tag,
         'icon_code': iconCode,
+        'completed': false,
         'likes': 0,
         'author': author ?? '익명',
         'timestamp': DateTime.now(),
@@ -136,7 +169,7 @@ class DatabaseService {
         .collection('completed_missions')
         .where('user_uid', isEqualTo: uid)
         .orderBy('timestamp', descending: true)
-        .snapshots(); // ← 실시간 구독!
+        .snapshots();
   }
 
   // ===============================================================
