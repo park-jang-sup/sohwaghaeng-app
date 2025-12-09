@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'dart:convert';  // ✅ 추가
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_naver_login/flutter_naver_login.dart';
+import 'package:naver_login_sdk/naver_login_sdk.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:b612_1/services/database_service.dart';
 import 'package:flutter/services.dart';
@@ -28,47 +30,93 @@ class AuthService {
       }
 
       return userCredential;
-
     } catch (e) {
       print("구글 로그인 에러: $e");
       return null;
     }
   }
 
-  // 2. 네이버 로그인
+  // 2. 네이버 로그인 (v3.x 콜백 방식)
   Future<bool> signInWithNaver() async {
-    try {
-      // 로그인 시도
-      await FlutterNaverLogin.logIn();
+    final completer = Completer<bool>();
 
-      // 로그인 성공 확인 (괄호 추가!)
-      final isLoggedIn = await FlutterNaverLogin.isLoggedIn();
+    NaverLoginSDK.authenticate(
+      callback: OAuthLoginCallback(
+        onSuccess: () {
+          print("✅ 네이버 로그인 성공!");
+          _fetchNaverProfile(completer);
+        },
+        onFailure: (errorCode, message) {
+          print("❌ 네이버 로그인 실패: $errorCode - $message");
+          completer.complete(false);
+        },
+        onError: (errorCode, message) {
+          print("❌ 네이버 로그인 에러: $errorCode - $message");
+          completer.complete(false);
+        },
+      ),
+    );
 
-      if (isLoggedIn) {
-        print("✅ 네이버 로그인 성공!");
+    return completer.future;
+  }
 
-        // Firebase 익명 로그인
-        await _auth.signInAnonymously();
+  // 네이버 프로필 가져오기 (JSON 파싱 수정)
+  void _fetchNaverProfile(Completer<bool> completer) {
+    NaverLoginSDK.profile(
+      callback: ProfileCallback(
+        onSuccess: (resultCode, message, response) async {
+          print("✅ 프로필 응답: $response");
 
-        // 간단한 사용자 정보 저장
-        final user = _auth.currentUser;
-        if (user != null) {
-          await DatabaseService().saveSocialUser(
-            uid: "naver_${user.uid}",
-            email: "naver_user@temp.com",
-            nickname: "네이버 사용자",
-            photoUrl: null,
-            socialType: 'naver',
-          );
-        }
+          try {
+            // ✅ response가 JSON 문자열이므로 파싱
+            final Map<String, dynamic> profileData = jsonDecode(response.toString());
 
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print("네이버 로그인 에러: $e");
-      return false;
-    }
+            final String id = profileData['id'] ?? '';
+            final String email = profileData['email'] ?? 'naver_user@temp.com';
+            final String nickname = profileData['nickname'] ?? profileData['name'] ?? '네이버 사용자';
+            final String? profileImage = profileData['profileImage'];
+
+            print("✅ 파싱된 프로필: $nickname, $email");
+
+            // Firebase 익명 로그인
+            await _auth.signInAnonymously();
+
+            // 사용자 정보 저장
+            await DatabaseService().saveSocialUser(
+              uid: "naver_$id",
+              email: email,
+              nickname: nickname,
+              photoUrl: profileImage,
+              socialType: 'naver',
+            );
+
+            completer.complete(true);
+          } catch (e) {
+            print("프로필 처리 에러: $e");
+
+            // 프로필 파싱 실패해도 로그인은 시도
+            try {
+              await _auth.signInAnonymously();
+              await DatabaseService().saveSocialUser(
+                uid: "naver_${DateTime.now().millisecondsSinceEpoch}",
+                email: "naver_user@temp.com",
+                nickname: "네이버 사용자",
+                photoUrl: null,
+                socialType: 'naver',
+              );
+              completer.complete(true);
+            } catch (e2) {
+              print("Firebase 로그인 에러: $e2");
+              completer.complete(false);
+            }
+          }
+        },
+        onFailure: (errorCode, message) {
+          print("❌ 프로필 가져오기 실패: $errorCode - $message");
+          completer.complete(false);
+        },
+      ),
+    );
   }
 
   // 3. 카카오 로그인
@@ -102,18 +150,17 @@ class AuthService {
 
       await _auth.signInAnonymously();
       return true;
-
     } catch (e) {
       print("카카오 로그인 에러: $e");
       return false;
     }
   }
 
-  // 4. 로그아웃 및 유저 정보
+  // 4. 로그아웃
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
-      await FlutterNaverLogin.logOut();
+      await NaverLoginSDK.logout();
       await _auth.signOut();
       print("✅ 통합 로그아웃 완료");
     } catch (e) {

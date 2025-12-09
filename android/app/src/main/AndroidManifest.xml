@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ 인터넷 권한 추가 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
@@ -39,15 +38,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- 네이버 로그인 콜백 -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="oauth"
-                    android:scheme="naverlogin" />
-            </intent-filter>
+            <!-- ❌ 네이버 로그인 콜백 intent-filter 삭제! -->
+
         </activity>
 
         <meta-data
@@ -60,8 +52,6 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-
-        <!-- ✅ 카카오톡 앱 쿼리 추가 -->
         <package android:name="com.kakao.talk" />
     </queries>
 </manifest>
