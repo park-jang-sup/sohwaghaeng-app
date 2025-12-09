@@ -124,23 +124,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       )
                     else
-                    // 로그인 유저일 경우: 이메일 + 로그아웃 버튼
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(widget.userProfile.email, style: const TextStyle(fontSize: 14, color: Colors.black87)),
-                          OutlinedButton(
-                            onPressed: widget.onLogout,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.grey,
-                              side: BorderSide(color: Colors.grey.shade300),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                              minimumSize: const Size(0, 32),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text("로그아웃", style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
+                    // 로그인 유저일 경우: 이메일만 표시 (상단 로그아웃 버튼 삭제됨)
+                      Text(
+                        widget.userProfile.email,
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
                       ),
                   ],
                 )
