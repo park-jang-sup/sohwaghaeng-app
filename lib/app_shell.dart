@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // 날짜 처리를 위해 필요
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/models/custom_tag.dart';
+import 'package:b612_1/services/database_service.dart';
 import 'package:b612_1/screens/login/login_screen.dart';
 import 'package:b612_1/screens/onboarding_intro/onboarding_intro_screen.dart';
 import 'package:b612_1/screens/personality_test/personality_test_screen.dart';
@@ -13,6 +15,8 @@ import 'package:b612_1/screens/mission_browser/mission_browser_screen.dart';
 import 'package:b612_1/screens/history_tab/history_tab_screen.dart';
 import 'package:b612_1/screens/profile_screen/profile_screen.dart';
 import 'package:b612_1/widgets/modals/mood_selector.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:b612_1/services/auth_service.dart';
 
 enum OnboardingStep { login, intro, personalityTest, personalityResult, nicknameSetup, completed }
 enum TabItem { home, browse, records, profile }
@@ -43,13 +47,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  bool _isFirstTime = true;
-  OnboardingStep _onboardingStep = OnboardingStep.login;
+  bool _isFirstTime = false;
+  OnboardingStep _onboardingStep = OnboardingStep.completed;
+
   PersonalityType? _personalityType;
 
-  List<Mission> _missions = [];
-
-  // [신규] 완료된 미션들의 히스토리를 저장하는 리스트
+  // ❌ 삭제: List<Mission> _missions = [];
   List<Mission> _missionHistory = [];
 
   TabItem _currentTab = TabItem.home;
@@ -71,7 +74,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _missions = Mission.getSampleMissions();
+    // ❌ 삭제: _missions = Mission.getSampleMissions();
     _generateDummyAttendance();
   }
 
@@ -97,97 +100,100 @@ class _AppShellState extends State<AppShell> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('오늘의 기분: $mood')));
   }
 
-  void _handleToggleMission(String id) {
-    setState(() {
-      _missions = _missions.map((mission) {
-        if (mission.id == id) {
-          final newCompleted = !mission.completed;
-          return mission.copyWith(
-            completed: newCompleted,
-            completedAt: newCompleted ? DateTime.now().toIso8601String() : null,
-          );
+  // ✅ Firebase에 업데이트
+  void _handleToggleMission(String id) async {
+    // 로컬 상태는 StreamBuilder가 자동으로 업데이트하므로 여기서는 Firebase만 업데이트
+    // 현재 missions를 가져와서 completed 토글
+    // (간단하게 하기 위해 직접 Firestore 업데이트)
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('missions')
+          .doc(id)
+          .get();
+
+      if (doc.exists) {
+        final currentCompleted = doc.data()?['completed'] ?? false;
+        await FirebaseFirestore.instance
+            .collection('missions')
+            .doc(id)
+            .update({
+          'completed': !currentCompleted,
+          'completedAt': !currentCompleted ? DateTime.now().toIso8601String() : null,
+        });
+      }
+    } catch (e) {
+      print('미션 토글 에러: $e');
+    }
+  }
+
+  void _handleAddPhoto(String missionId, String? photoPath) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('missions')
+          .doc(missionId)
+          .update({'photo': photoPath});
+    } catch (e) {
+      print('사진 추가 에러: $e');
+    }
+  }
+
+  void _handleDeleteMission(String id) async {
+    try {
+      await DatabaseService().deleteMission(id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('미션이 삭제되었습니다')),
+      );
+    } catch (e) {
+      print('미션 삭제 에러: $e');
+    }
+  }
+
+  void _handleCreateMission(String title, String icon, String color, bool isPublic, String? time) async {
+    try {
+      await DatabaseService().addMission(
+        title: title,
+        description: '',
+        tag: 'custom',
+        iconCode: Icons.star.codePoint,
+        author: _userProfile.nickname,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('미션이 추가되었습니다!')),
+      );
+    } catch (e) {
+      print('미션 생성 에러: $e');
+    }
+  }
+
+  void _handleAddMissionFromBrowser(Mission mission, String? originalId) async {
+    try {
+      await DatabaseService().addMission(
+        title: mission.title,
+        description: mission.description,
+        tag: mission.tag,
+        iconCode: Icons.star.codePoint,
+        author: _userProfile.nickname,
+      );
+
+      setState(() {
+        if (originalId != null) {
+          _addedMissionIds.add(originalId);
         }
-        return mission;
-      }).toList();
-    });
-    _updateTodayAttendance();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('미션이 추가되었습니다!')),
+      );
+    } catch (e) {
+      print('미션 추가 에러: $e');
+    }
   }
 
-  void _updateTodayAttendance() {
-    final completedCount = _missions.where((m) => m.completed).length;
-    final totalMissions = _missions.length;
-    final today = DateTime.now().toIso8601String().split("T")[0];
-
-    setState(() {
-      if (completedCount == totalMissions && totalMissions > 0) {
-        _attendanceData[today] = true;
-      } else {
-        _attendanceData.remove(today);
-      }
-    });
-  }
-
-  void _handleAddPhoto(String missionId, String? photoPath) {
-    setState(() {
-      _missions = _missions.map((m) {
-        return m.id == missionId ? m.copyWith(photo: photoPath) : m;
-      }).toList();
-    });
-  }
-
-  void _handleDeleteMission(String id) {
-    setState(() {
-      _missions.removeWhere((m) => m.id == id);
-    });
-    _updateTodayAttendance();
-  }
-
-  void _handleCreateMission(String title, String icon, String color, bool isPublic, String? time) {
-    final newMission = Mission(
-      id: "mission-${DateTime.now().millisecondsSinceEpoch}",
-      title: title,
-      description: "",
-      completed: false,
-      tag: "custom",
-      icon: icon,
-      color: color,
-      isPublic: isPublic,
-      time: time,
-      source: 'mine',
-    );
-    setState(() {
-      _missions.add(newMission);
-    });
-  }
-
-  void _handleAddMissionFromBrowser(Mission mission, String? originalId) {
-    setState(() {
-      _missions.add(mission);
-      if (originalId != null) {
-        _addedMissionIds.add(originalId);
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미션이 추가되었습니다!')));
-  }
-
-  // [중요] 하루 마무리 핸들러: 완료된 미션을 _missionHistory에 저장
   void _handleFinishDay() {
     final now = DateTime.now();
     final todayStr = now.toIso8601String().split("T")[0];
 
     setState(() {
-      // 1. 현재 화면에서 '완료됨'으로 체크된 미션들을 찾음
-      final completedToday = _missions.where((m) => m.completed).map((m) {
-        // completedAt이 비어있다면 현재 시간으로 채워줌
-        return m.copyWith(
-          completedAt: m.completedAt ?? now.toIso8601String(),
-        );
-      }).toList();
-
-      // 2. 히스토리 리스트에 추가 (누적 저장)
-      _missionHistory.addAll(completedToday);
-
-      // 3. 출석 데이터에 오늘 날짜 체크
       _attendanceData[todayStr] = true;
     });
 
@@ -199,25 +205,31 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  // 미션 정렬
   void _handleSortMissions() {
-    setState(() {
-      _missions.sort((a, b) {
-        if (a.completed != b.completed) return a.completed ? 1 : -1;
-        if (a.time != null && b.time == null) return -1;
-        if (a.time == null && b.time != null) return 1;
-        return a.title.compareTo(b.title);
-      });
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('미션이 정렬되었습니다.')));
+    // 정렬은 클라이언트 측에서만 처리 (실제로는 Firestore 쿼리로 처리하는 게 좋음)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('미션이 정렬되었습니다.')),
+    );
   }
 
-  // 미션 리셋
-  void _handleResetMissions() {
-    setState(() {
-      _missions = _missions.map((m) => m.copyWith(completed: false)).toList();
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('모든 미션이 초기화되었습니다.')));
+  void _handleResetMissions() async {
+    // 모든 미션의 completed를 false로 변경
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('missions')
+          .where('completed', isEqualTo: true)
+          .get();
+
+      for (var doc in snapshot.docs) {
+        await doc.reference.update({'completed': false, 'completedAt': null});
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 미션이 초기화되었습니다.')),
+      );
+    } catch (e) {
+      print('미션 초기화 에러: $e');
+    }
   }
 
   // --- Onboarding Handlers ---
@@ -257,25 +269,42 @@ class _AppShellState extends State<AppShell> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(icon: Icons.home_rounded, label: "홈", isSelected: _currentTab == TabItem.home, onTap: () => setState(() => _currentTab = TabItem.home)),
+              _buildNavItem(
+                icon: Icons.home_rounded,
+                label: "홈",
+                isSelected: _currentTab == TabItem.home,
+                onTap: () => setState(() => _currentTab = TabItem.home),
+              ),
               GestureDetector(
                 onTap: () => setState(() => _currentTab = TabItem.browse),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 50, height: 50,
+                      width: 50,
+                      height: 50,
                       decoration: BoxDecoration(
                         color: _currentTab == TabItem.browse ? Colors.orange : Colors.orange.shade300,
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
                       ),
                       child: const Icon(Icons.search, color: Colors.white, size: 28),
                     ),
                   ],
                 ),
               ),
-              _buildNavItem(icon: Icons.menu_book_rounded, label: "기록", isSelected: _currentTab == TabItem.records || _currentTab == TabItem.profile, onTap: () => setState(() => _currentTab = TabItem.records)),
+              _buildNavItem(
+                icon: Icons.menu_book_rounded,
+                label: "기록",
+                isSelected: _currentTab == TabItem.records || _currentTab == TabItem.profile,
+                onTap: () => setState(() => _currentTab = TabItem.records),
+              ),
             ],
           ),
         ),
@@ -283,7 +312,12 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildNavItem({required IconData icon, required String label, required bool isSelected, required VoidCallback onTap}) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -292,7 +326,14 @@ class _AppShellState extends State<AppShell> {
         children: [
           Icon(icon, size: 28, color: isSelected ? Colors.orange : Colors.grey.shade400),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400, color: isSelected ? Colors.orange : Colors.grey.shade400)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: isSelected ? Colors.orange : Colors.grey.shade400,
+            ),
+          ),
         ],
       ),
     );
@@ -303,15 +344,36 @@ class _AppShellState extends State<AppShell> {
     if (_isFirstTime && _onboardingStep != OnboardingStep.completed) {
       switch (_onboardingStep) {
         case OnboardingStep.login:
-          return LoginScreen(onGuestLogin: () => setState(() => _onboardingStep = OnboardingStep.intro), onSocialLogin: (_) {});
+          return LoginScreen(
+            onGuestLogin: () => setState(() => _onboardingStep = OnboardingStep.intro),
+            onSocialLogin: (_) {},
+          );
         case OnboardingStep.intro:
-          return OnboardingIntroScreen(onComplete: () => setState(() => _onboardingStep = OnboardingStep.personalityTest), onBack: () {});
+          return OnboardingIntroScreen(
+            onComplete: () => setState(() => _onboardingStep = OnboardingStep.personalityTest),
+            onBack: () {},
+          );
         case OnboardingStep.personalityTest:
-          return PersonalityTestScreen(onComplete: (type) { setState(() { _personalityType = type; _onboardingStep = OnboardingStep.personalityResult; });}, onBack: () {});
+          return PersonalityTestScreen(
+            onComplete: (type) {
+              setState(() {
+                _personalityType = type;
+                _onboardingStep = OnboardingStep.personalityResult;
+              });
+            },
+            onBack: () {},
+          );
         case OnboardingStep.personalityResult:
-          return PersonalityResultScreen(personalityType: _personalityType!, onComplete: _handlePersonalityResultComplete, onBack: () {});
+          return PersonalityResultScreen(
+            personalityType: _personalityType!,
+            onComplete: _handlePersonalityResultComplete,
+            onBack: () {},
+          );
         case OnboardingStep.nicknameSetup:
-          return NicknameSetupScreen(onComplete: _handleNicknameSetupComplete, onBack: () => setState(() => _onboardingStep = OnboardingStep.personalityResult));
+          return NicknameSetupScreen(
+            onComplete: _handleNicknameSetupComplete,
+            onBack: () => setState(() => _onboardingStep = OnboardingStep.personalityResult),
+          );
         default:
           return Container();
       }
@@ -330,7 +392,10 @@ class _AppShellState extends State<AppShell> {
           ),
           Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomNavigationBar()),
           if (_showMoodSelector)
-            Container(color: Colors.black54, child: MoodSelector(onSelectMood: _handleSelectMood)),
+            Container(
+              color: Colors.black54,
+              child: MoodSelector(onSelectMood: _handleSelectMood),
+            ),
         ],
       ),
     );
@@ -339,32 +404,72 @@ class _AppShellState extends State<AppShell> {
   Widget _buildBody() {
     switch (_currentTab) {
       case TabItem.home:
-        return HomeTabScreen(
-          missions: _missions,
-          onToggleMission: _handleToggleMission,
-          onAddMission: _handleCreateMission,
-          onDeleteMission: _handleDeleteMission,
-          onAddPhoto: _handleAddPhoto,
+      // ✅ StreamBuilder로 실시간 구독!
+        return StreamBuilder<QuerySnapshot>(
+          stream: DatabaseService().getMissionsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          onFinishDay: _handleFinishDay, // [연결됨]
-          onSortMissions: _handleSortMissions,
-          onResetMissions: _handleResetMissions,
+            if (snapshot.hasError) {
+              return Center(child: Text('에러: ${snapshot.error}'));
+            }
 
-          currentMood: _currentMood,
-          streakDays: _streakDays,
+            // Firestore 문서를 Mission 객체로 변환
+            final missions = snapshot.data?.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return Mission(
+                id: doc.id,
+                title: data['title'] ?? '제목 없음',
+                description: data['description'] ?? '',
+                completed: data['completed'] ?? false,
+                tag: data['tag'] ?? 'custom',
+                icon: 'star',
+                color: '#FFD6A5',
+                source: 'mine',
+                completedAt: data['completedAt'],
+                photo: data['photo'],
+              );
+            }).toList() ?? [];
+
+            return HomeTabScreen(
+              missions: missions,
+              onToggleMission: _handleToggleMission,
+              onAddMission: _handleCreateMission,
+              onDeleteMission: _handleDeleteMission,
+              onAddPhoto: _handleAddPhoto,
+              onFinishDay: _handleFinishDay,
+              onSortMissions: _handleSortMissions,
+              onResetMissions: _handleResetMissions,
+              currentMood: _currentMood,
+              streakDays: _streakDays,
+            );
+          },
         );
+
       case TabItem.browse:
-        return MissionBrowserScreen(addedMissionIds: _addedMissionIds, onAddMission: _handleAddMissionFromBrowser);
+        return MissionBrowserScreen(
+          addedMissionIds: _addedMissionIds,
+          onAddMission: _handleAddMissionFromBrowser,
+        );
+
       case TabItem.records:
-      // [수정] missionHistory 전달
         return HistoryTabScreen(
           attendanceData: _attendanceData,
           missionHistory: _missionHistory,
           onOpenProfile: () => setState(() => _currentTab = TabItem.profile),
           userProfile: _userProfile,
         );
+
       case TabItem.profile:
-        return ProfileScreen(userProfile: _userProfile, onBack: () => setState(() => _currentTab = TabItem.records), onLogout: () {});
+        return ProfileScreen(
+          userProfile: _userProfile,
+          onBack: () => setState(() => _currentTab = TabItem.records),
+          onLogout: () async {
+            await AuthService().signOut();
+          },
+        );
     }
   }
 }

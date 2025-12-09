@@ -39,6 +39,10 @@ dependencies:
   intl: ^0.20.2
   image_picker: ^1.0.4
   table_calendar: ^3.0.9
+  firebase_auth: ^6.1.2
+  google_sign_in: ^6.2.1
+  flutter_naver_login: ^2.1.1
+  kakao_flutter_sdk_user: ^1.10.0
 
 dev_dependencies:
   flutter_test:

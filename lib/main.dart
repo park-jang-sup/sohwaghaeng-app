@@ -1,33 +1,35 @@
 import 'package:flutter/material.dart';
-// [필수 1] 파이어베이스 코어
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'firebase_options.dart';
-
-// [필수 3] DB 서비스
-import 'package:b612_1/services/database_service.dart';
-
-// 기존 패키지들
+import 'package:b612_1/services/auth_service.dart';
 import 'package:b612_1/app_shell.dart';
+import 'package:b612_1/screens/login/login_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
-  // 1. Flutter 바인딩 초기화
+  // 1. 플러터 엔진 초기화
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. 파이어베이스 초기화
-  // 위에서 import 'firebase_options.dart'를 했기 때문에
-  // 이제 DefaultFirebaseOptions를 알아들을 수 있습니다.
+  // 2. 카카오 SDK 초기화
+  kakao.KakaoSdk.init(nativeAppKey: 'b5edb9f1862a0c6c7a43e426918be57c');
+
+  try {
+    String hash = await kakao.KakaoSdk.origin;
+    print('🚨 카카오 등록용 키 해시: $hash');
+  } catch (e) {
+    print('키 해시 생성 실패: $e');
+  }
+
+  // 3. 파이어베이스 초기화
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 3. 한국어 날짜 데이터 초기화
+  // 4. 날짜 포맷 초기화
   await initializeDateFormatting('ko_KR', null);
 
-  // [관리자용] 초기 데이터 DB 업로드 (필요할 때만 주석 풀기)
-  // await DatabaseService().uploadSampleMissions();
-
-  // 4. 앱 실행
   runApp(const MyApp());
 }
 
@@ -38,9 +40,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: '소확행',
       theme: ThemeData(
         primaryColor: Colors.orange,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        scaffoldBackgroundColor: Colors.white,
         bottomSheetTheme: const BottomSheetThemeData(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
@@ -48,7 +52,49 @@ class MyApp extends StatelessWidget {
           backgroundColor: Colors.white,
         ),
       ),
-      home: const AppShell(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // 1. 로딩 중
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          // 2. 에러 발생 시
+          if (snapshot.hasError) {
+            return const Scaffold(
+              body: Center(child: Text("로그인 시스템 에러 발생")),
+            );
+          }
+
+          // 3. 로그인 성공 상태 -> 메인 앱(AppShell) 실행
+          if (snapshot.hasData) {
+            return const AppShell();
+          }
+
+          // 4. 로그아웃 상태 -> 로그인 화면(LoginScreen) 실행
+          return LoginScreen(
+            onGuestLogin: () {
+              print("게스트 로그인 클릭");
+            },
+            onSocialLogin: (provider) async {
+              print("🖱️ $provider 로그인 시도");
+
+              if (provider == 'google') {
+                await AuthService().signInWithGoogle();
+              }
+              else if (provider == 'naver') {
+                await AuthService().signInWithNaver();
+              }
+              else if (provider == 'kakao') {
+                await AuthService().signInWithKakao();
+              }
+            },
+          );
+        },
+      ),
     );
   }
 }
