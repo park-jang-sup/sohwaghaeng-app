@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:b612_1/widgets/custom_back_button.dart';
+//import 'package:b612_1/widgets/custom_back_button.dart';
 
 /// PersonalityTest, OnboardingIntro 등
 /// 여러 단계의 화면에서 공통으로 사용하는 상단바입니다.

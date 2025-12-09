@@ -1,35 +1,21 @@
 import 'package:flutter/material.dart';
-// import 'package:lucide_flutter/lucide_flutter.dart'; // [수정] 삭제
-import 'package:b612_1/app_shell.dart' show UserProfile;
-
-final List<String> _availableEmojis = [
-  '😊', '😄', '🥰', '😎', '🤗', '🙃', '😇', '🤓', '🥳', '😌',
-  '🌟', '✨', '🌈', '🦄', '🐱', '🐶', '🐻', '🐼', '🦊', '🐸',
-  '🌸', '🌺', '🌻', '🌷', '🌹', '🍀', '🌿', '🌱', '🌳', '🍃'
-];
-
-final List<String> _availableBioTags = [
-  '소확행 실천러', '일상 기록자', '작은 행복 수집가', '루틴 메이커',
-  '성장하는 중', '긍정 에너지', '미니멀 라이프', '자기계발러',
-  '감사 실천러', '건강한 삶', '창의적 생활', '도전하는 사람',
-  '꾸준한 노력', '변화 추구자', '균형 잡힌 삶', '자연 사랑',
-  '책 읽는 사람', '운동하는 중', '요리 탐험가', '취미 생활자',
-  '여행 꿈나무', '학습하는 중', '예술 애호가', '음악 러버'
-];
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:b612_1/app_shell.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile userProfile;
   final VoidCallback onBack;
   final VoidCallback onLogout;
-  final Function(UserProfile) onUpdateProfile;
+  final Function(String)? onNicknameChanged; // ✅ 콜백 추가
+  final VoidCallback? onRetakePersonalityTest; // ✅ 성향 테스트 다시하기
 
   const ProfileScreen({
     super.key,
     required this.userProfile,
     required this.onBack,
     required this.onLogout,
-    required this.onUpdateProfile
+    this.onNicknameChanged,
+    this.onRetakePersonalityTest,
   });
 
   @override
@@ -38,45 +24,91 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditing = false;
-  late TextEditingController _nicknameController;
-  late String _selectedEmoji;
-  late String _selectedBio;
+  bool _isSaving = false;
+  late TextEditingController _nickController;
 
-  bool _notifications = true;
-  bool _missionReminder = true;
-  bool _weeklyReport = false;
+  // 알림 설정 상태
+  bool _notiEnabled = true;
+  bool _reminderEnabled = true;
+  bool _weeklyReportEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _nicknameController = TextEditingController(text: widget.userProfile.nickname);
-    _selectedEmoji = widget.userProfile.profileEmoji;
-    _selectedBio = widget.userProfile.bio;
+    _nickController = TextEditingController(text: widget.userProfile.nickname);
+    _loadNotificationSettings();
   }
 
+  // ✅ dispose 추가 (메모리 누수 방지)
   @override
   void dispose() {
-    _nicknameController.dispose();
+    _nickController.dispose();
     super.dispose();
   }
 
-  void _handleSave() {
-    final updatedProfile = UserProfile(
-      nickname: _nicknameController.text.trim(),
-      profileEmoji: _selectedEmoji,
-      bio: _selectedBio,
-      email: widget.userProfile.email,
-      personalityType: widget.userProfile.personalityType,
-    );
-    widget.onUpdateProfile(updatedProfile);
-
+  // ✅ 알림 설정 불러오기
+  Future<void> _loadNotificationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isEditing = false;
+      _notiEnabled = prefs.getBool('noti_enabled') ?? true;
+      _reminderEnabled = prefs.getBool('reminder_enabled') ?? true;
+      _weeklyReportEnabled = prefs.getBool('weekly_report_enabled') ?? false;
     });
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('프로필이 업데이트되었습니다.'), duration: Duration(seconds: 2)),
-    );
+  // ✅ 알림 설정 저장
+  Future<void> _saveNotificationSetting(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  // ✅ 닉네임 저장 (콜백 방식)
+  Future<void> _toggleEdit() async {
+    if (_isEditing) {
+      final newNickname = _nickController.text.trim();
+
+      if (newNickname.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('닉네임을 입력해주세요')),
+        );
+        return;
+      }
+
+      if (newNickname.length > 20) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('닉네임은 20자 이하여야 합니다')),
+        );
+        return;
+      }
+
+      setState(() => _isSaving = true);
+
+      try {
+        // 상위 위젯에 닉네임 변경 알림
+        widget.onNicknameChanged?.call(newNickname);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('닉네임이 변경되었습니다'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('저장 실패: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
+      }
+    }
+
+    setState(() => _isEditing = !_isEditing);
   }
 
   @override
@@ -85,393 +117,450 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: const Color(0xFFF2F2F2),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 1.0,
+        elevation: 0,
         leading: IconButton(
-          // [수정] LucideIcons.arrowLeft -> Icons.arrow_back
-          icon: Icon(Icons.arrow_back, color: Colors.grey.shade600),
+          icon: const Icon(Icons.arrow_back, color: Colors.grey),
           onPressed: widget.onBack,
         ),
-        title: const Text('프로필 & 설정', style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.w500)),
+        title: const Text(
+          "프로필 & 설정",
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildProfileEditCard(context),
-            const SizedBox(height: 16.0),
-            _buildBioTagCard(context),
-            const SizedBox(height: 16.0),
-            _buildPersonalityTestCard(context),
-            const SizedBox(height: 16.0),
-            _buildNotificationCard(context),
-            const SizedBox(height: 16.0),
-            _buildOtherSettingsCard(context),
-            const SizedBox(height: 16.0),
-            _buildAccountInfoCard(context),
-            const SizedBox(height: 16.0),
-            _buildLogoutCard(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfileEditCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('프로필 정보', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
-                TextButton.icon(
-                  // [수정] LucideIcons.check/pencil -> Icons.check/edit
-                  icon: Icon(_isEditing ? Icons.check : Icons.edit, size: 16.0),
-                  label: Text(_isEditing ? '저장' : '편집'),
-                  onPressed: () {
-                    if (_isEditing) {
-                      _handleSave();
-                    } else {
-                      setState(() => _isEditing = true);
-                    }
-                  },
-                  style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF7F50)),
+            // 1. 프로필 정보 카드
+            _buildCard(
+              title: "프로필 정보",
+              action: _isSaving
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : TextButton.icon(
+                icon: Icon(_isEditing ? Icons.check : Icons.edit, size: 16),
+                label: Text(_isEditing ? "저장" : "편집"),
+                onPressed: _toggleEdit,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFFF7F50),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16.0),
-            Row(
+              ),
               children: [
-                GestureDetector(
-                  onTap: () {
-                    if (_isEditing) _showEmojiPicker(context);
-                  },
-                  child: Container(
-                    width: 64.0,
-                    height: 64.0,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.orange.shade200, width: 3.0),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5.0)],
+                // 닉네임
+                if (_isEditing)
+                  TextField(
+                    controller: _nickController,
+                    maxLength: 20,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      counterText: '',
                     ),
-                    child: Center(child: Text(_selectedEmoji, style: const TextStyle(fontSize: 28.0))),
+                  )
+                else
+                  Text(
+                    widget.userProfile.nickname,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _isEditing
-                          ? TextField(
-                        controller: _nicknameController,
-                        decoration: const InputDecoration(
-                          labelText: '닉네임',
-                          border: OutlineInputBorder(),
-                        ),
-                      )
-                          : Text(_nicknameController.text, style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        widget.userProfile.personalityType,
-                        style: TextStyle(fontSize: 14.0, color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildBioTagCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                const SizedBox(height: 4),
+                // 성향 타입
                 Text(
-                  '# 자기소개 태그',
-                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold, color: Colors.grey.shade800),
+                  widget.userProfile.personalityType,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
-                IconButton(
-                  // [수정] LucideIcons.pencil -> Icons.edit
-                  icon: const Icon(Icons.edit, size: 16.0),
-                  color: const Color(0xFFFF7F50),
-                  onPressed: () => _showBioSelector(context),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  child: Divider(height: 1, thickness: 0.5),
                 ),
+
+                // 계정 정보 섹션
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "계정",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    if (widget.userProfile.isGuest)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "게스트 로그인",
+                            style: TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              // TODO: 로그인 화면으로 이동
+                              print("로그인 화면으로 이동");
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 0,
+                              ),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: const Text(
+                              "로그인",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        widget.userProfile.email,
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      ),
+                  ],
+                )
               ],
             ),
-            const SizedBox(height: 8.0),
+
+            const SizedBox(height: 16),
+
+            // 2. 성향 테스트 다시하기 카드
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: Colors.orange.shade200),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
               ),
-              child: Text(
-                '# $_selectedBio',
-                style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.w500),
+              child: InkWell(
+                onTap: widget.onRetakePersonalityTest,
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
+                    const SizedBox(width: 12),
+                    const Text(
+                      "성향 테스트 다시하기",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      widget.userProfile.personalityType,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildPersonalityTestCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: ListTile(
-        // [수정] LucideIcons.sparkles -> Icons.auto_awesome
-        leading: Icon(Icons.auto_awesome, color: Colors.orange.shade500),
-        title: const Text('성향 테스트 다시하기'),
-        trailing: Text(
-          widget.userProfile.personalityType,
-          style: TextStyle(fontSize: 14.0, color: Colors.grey.shade600),
-        ),
-        onTap: () {
-          print('성향 테스트 다시하기');
-        },
-      ),
-    );
-  }
+            const SizedBox(height: 16),
 
-  Widget _buildNotificationCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+            // 3. 알림 설정 카드
+            _buildCard(
+              title: "알림 설정",
+              icon: Icons.notifications,
+              iconColor: Colors.orange,
               children: [
-                // [수정] LucideIcons.bell -> Icons.notifications
-                Icon(Icons.notifications, size: 20.0, color: Colors.orange.shade500),
-                const SizedBox(width: 8.0),
-                const Text('알림 설정', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
+                _buildSwitchRow(
+                  "푸시 알림",
+                  "앱 알림 받기",
+                  _notiEnabled,
+                      (v) {
+                    setState(() => _notiEnabled = v);
+                    _saveNotificationSetting('noti_enabled', v);
+                  },
+                ),
+                _buildSwitchRow(
+                  "미션 리마인더",
+                  "완료하지 않은 미션 알림",
+                  _reminderEnabled,
+                      (v) {
+                    setState(() => _reminderEnabled = v);
+                    _saveNotificationSetting('reminder_enabled', v);
+                  },
+                ),
+                _buildSwitchRow(
+                  "주간 리포트",
+                  "주간 달성 결과 받기",
+                  _weeklyReportEnabled,
+                      (v) {
+                    setState(() => _weeklyReportEnabled = v);
+                    _saveNotificationSetting('weekly_report_enabled', v);
+                  },
+                ),
               ],
             ),
-            const SizedBox(height: 8.0),
-            SwitchListTile(
-              title: const Text('푸시 알림', style: TextStyle(fontSize: 14.0)),
-              subtitle: Text('앱 알림 받기', style: TextStyle(fontSize: 12.0, color: Colors.grey.shade600)),
-              value: _notifications,
-              onChanged: (val) => setState(() => _notifications = val),
-              activeColor: Theme.of(context).primaryColor,
+
+            const SizedBox(height: 16),
+
+            // 4. 기타 메뉴 카드
+            _buildCard(
+              children: [
+                _buildMenuRow(Icons.lock_outline, "개인정보 처리방침"),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4.0),
+                  child: Divider(height: 1, thickness: 0.5),
+                ),
+                _buildMenuRow(Icons.help_outline, "고객센터"),
+              ],
             ),
-            SwitchListTile(
-              title: const Text('미션 리마인더', style: TextStyle(fontSize: 14.0)),
-              subtitle: Text('완료하지 않은 미션 알림', style: TextStyle(fontSize: 12.0, color: Colors.grey.shade600)),
-              value: _missionReminder,
-              onChanged: _notifications ? (val) => setState(() => _missionReminder = val) : null,
-              activeColor: Theme.of(context).primaryColor,
+
+            const SizedBox(height: 16),
+
+            // 5. 로그아웃 카드 (const 오류 수정)
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onLogout,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    // ✅ const 오류 수정: Row를 const로 변경
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.red, size: 20),
+                        SizedBox(width: 12),
+                        Text(
+                          "로그아웃",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            SwitchListTile(
-              title: const Text('주간 리포트', style: TextStyle(fontSize: 14.0)),
-              subtitle: Text('주간 달성 결과 받기', style: TextStyle(fontSize: 12.0, color: Colors.grey.shade600)),
-              value: _weeklyReport,
-              onChanged: _notifications ? (val) => setState(() => _weeklyReport = val) : null,
-              activeColor: Theme.of(context).primaryColor,
+
+            const SizedBox(height: 24),
+
+            // 탈퇴하기 링크
+            GestureDetector(
+              onTap: () {
+                _showDeleteAccountDialog();
+              },
+              child: const Text(
+                "탈퇴하기",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOtherSettingsCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Column(
-        children: [
-          ListTile(
-            // [수정] LucideIcons.lock -> Icons.lock
-            leading: Icon(Icons.lock, size: 20.0, color: Colors.grey.shade500),
-            title: const Text('개인정보 처리방침'),
-            onTap: () => print('개인정보 처리방침'),
+  // ✅ 탈퇴 확인 다이얼로그
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('정말 탈퇴하시겠습니까?'),
+        content: const Text('탈퇴하면 모든 데이터가 삭제되며\n복구할 수 없습니다.'),
+        actions: [
+          TextButton(
+            child: const Text('취소'),
+            onPressed: () => Navigator.pop(context),
           ),
-          ListTile(
-            // [수정] LucideIcons.info -> Icons.info_outline
-            leading: Icon(Icons.info_outline, size: 20.0, color: Colors.grey.shade500),
-            title: const Text('고객센터'),
-            onTap: () => print('고객센터'),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('탈퇴'),
+            onPressed: () {
+              Navigator.pop(context);
+              // TODO: 실제 탈퇴 로직
+              print("계정 탈퇴 처리");
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAccountInfoCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // [수정] LucideIcons.user -> Icons.person
-                Icon(Icons.person, size: 20.0, color: Colors.grey.shade500),
-                const SizedBox(width: 8.0),
-                const Text('계정 정보', style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16.0),
+  // 카드 위젯 빌더
+  Widget _buildCard({
+    String? title,
+    IconData? icon,
+    Color? iconColor,
+    Widget? action,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('이메일', style: TextStyle(fontSize: 14.0, color: Colors.grey.shade600)),
-                Text(widget.userProfile.email, style: const TextStyle(fontSize: 14.0, fontWeight: FontWeight.w500)),
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 20, color: iconColor ?? Colors.black),
+                      const SizedBox(width: 8)
+                    ],
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+                if (action != null) action,
               ],
             ),
+            if (action == null)
+              const SizedBox(height: 16)
+            else
+              const SizedBox(height: 8),
+          ],
+          ...children
+        ],
+      ),
+    );
+  }
+
+  // 스위치 행 빌더 (deprecated API 수정)
+  Widget _buildSwitchRow(
+      String title,
+      String sub,
+      bool value,
+      Function(bool) onChanged,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Colors.white,
+              activeTrackColor: Colors.orange,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: Colors.grey.shade300,
+              // ✅ deprecated MaterialStateProperty → WidgetStateProperty
+              trackOutlineColor: WidgetStateProperty.resolveWith(
+                    (states) => Colors.transparent,
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // 메뉴 행 빌더
+  Widget _buildMenuRow(IconData icon, String text) {
+    return InkWell(
+      onTap: () {
+        // TODO: 각 메뉴 클릭 처리
+        print("$text 클릭");
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: Colors.grey),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLogoutCard(BuildContext context) {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-      child: ListTile(
-        // [수정] LucideIcons.logOut -> Icons.logout
-        leading: Icon(Icons.logout, size: 20.0, color: Colors.red.shade600),
-        title: Text('로그아웃', style: TextStyle(color: Colors.red.shade600)),
-        onTap: widget.onLogout,
-      ),
-    );
-  }
-
-  void _showEmojiPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '프로필 아이콘 선택',
-                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 16.0),
-                Expanded(
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 6,
-                      mainAxisSpacing: 8.0,
-                      crossAxisSpacing: 8.0,
-                    ),
-                    itemCount: _availableEmojis.length,
-                    itemBuilder: (context, index) {
-                      final emoji = _availableEmojis[index];
-                      final isSelected = _selectedEmoji == emoji;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedEmoji = emoji);
-                          Navigator.pop(context);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.orange.shade100 : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8.0),
-                            border: isSelected ? Border.all(color: Colors.orange.shade300, width: 2.0) : null,
-                          ),
-                          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24.0))),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showBioSelector(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '보유한 태그 중에서 선택하세요',
-                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 16.0),
-                Expanded(
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8.0,
-                      crossAxisSpacing: 8.0,
-                      childAspectRatio: 4.0,
-                    ),
-                    itemCount: _availableBioTags.length,
-                    itemBuilder: (context, index) {
-                      final tag = _availableBioTags[index];
-                      final isSelected = _selectedBio == tag;
-                      return OutlinedButton(
-                        onPressed: () {
-                          setState(() => _selectedBio = tag);
-                          Navigator.pop(context);
-                        },
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: isSelected ? Colors.orange.shade100 : Colors.grey.shade50,
-                          foregroundColor: isSelected ? Colors.orange.shade700 : Colors.grey.shade700,
-                          side: BorderSide(
-                            color: isSelected ? Colors.orange.shade300 : Colors.grey.shade200,
-                            width: isSelected ? 2.0 : 1.0,
-                          ),
-                          alignment: Alignment.centerLeft,
-                        ),
-                        child: Text(tag, style: const TextStyle(fontSize: 12.0)),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }
