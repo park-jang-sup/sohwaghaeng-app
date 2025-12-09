@@ -5,6 +5,7 @@ class TagSelectionButton extends StatelessWidget {
   final IconData icon;
   final bool isSelected;
   final VoidCallback onPressed;
+  final bool enabled; // ✅ 비활성화 상태 추가
 
   const TagSelectionButton({
     super.key,
@@ -12,39 +13,78 @@ class TagSelectionButton extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.onPressed,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    // .tsx의 className에 따라 스타일을 분기합니다.
-    final Color borderColor = isSelected ? Theme.of(context).primaryColor : Colors.grey.shade200;
-    final Color backgroundColor = isSelected ? Colors.orange.shade50 : Colors.white;
-    final Color textColor = isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600;
-    final double scale = isSelected ? 1.05 : 1.0;
+    final Color primaryColor = Theme.of(context).primaryColor;
 
-    // `AnimatedContainer`로 부드러운 스케일 효과
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      transform: Matrix4.identity()..scale(scale),
-      transformAlignment: Alignment.center,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          side: BorderSide(color: borderColor, width: 2.0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
+    final Color borderColor = !enabled
+        ? Colors.grey.shade300
+        : isSelected
+        ? primaryColor
+        : Colors.grey.shade200;
+
+    final Color backgroundColor = !enabled
+        ? Colors.grey.shade100
+        : isSelected
+        ? Colors.orange.shade50
+        : Colors.white;
+
+    final Color textColor = !enabled
+        ? Colors.grey.shade400
+        : isSelected
+        ? primaryColor
+        : Colors.grey.shade600;
+
+    final double scale = isSelected ? 1.02 : 1.0; // ✅ 스케일 축소 (1.05 → 1.02)
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      enabled: enabled,
+      label: '$label ${isSelected ? "선택됨" : ""}',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..scale(scale),
+        transformAlignment: Alignment.center,
+        child: OutlinedButton.icon(
+          onPressed: enabled ? onPressed : null,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: backgroundColor,
+            side: BorderSide(color: borderColor, width: 2.0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+            alignment: Alignment.centerLeft,
+            // ✅ 터치 피드백 색상
+            foregroundColor: primaryColor,
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return Colors.orange.withOpacity(0.1);
+              }
+              return null;
+            }),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
-          alignment: Alignment.centerLeft,
-        ),
-        icon: Icon(icon, size: 20.0, color: textColor),
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14.0,
-            fontWeight: FontWeight.w500,
-            color: textColor,
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Icon(
+              icon,
+              key: ValueKey(isSelected),
+              size: 20.0,
+              color: textColor,
+            ),
+          ),
+          label: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.0,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: textColor,
+            ),
           ),
         ),
       ),

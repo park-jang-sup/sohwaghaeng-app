@@ -23,6 +23,9 @@ class _EditMissionModalState extends State<EditMissionModal> {
   String _selectedColorId = 'white';
   bool _isPublic = false;
 
+  // ✅ 로딩 상태 추가
+  bool _isSubmitting = false;
+
   final List<Map<String, dynamic>> _iconOptions = [
     {'id': 'sun', 'icon': Icons.wb_sunny_rounded},
     {'id': 'book', 'icon': Icons.menu_book_rounded},
@@ -51,27 +54,85 @@ class _EditMissionModalState extends State<EditMissionModal> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.mission.title);
-    _timeController = TextEditingController(text: ""); // Mission 모델에 time 필드가 있다면 초기화
+    _timeController = TextEditingController(text: widget.mission.time ?? "");
 
-    // 아이콘 초기화 (Mission 모델의 아이콘이 String ID라면 그대로 사용, IconData라면 매핑 필요)
-    // 여기서는 간단히 기본값 또는 매핑 로직을 가정합니다.
-    _selectedIconId = 'sun'; // 실제로는 widget.mission.icon을 기반으로 ID를 찾아야 함
+    // ✅ 아이콘 초기화 (IconData에서 ID 찾기)
+    _selectedIconId = _findIconIdFromIconData(widget.mission.iconData);
 
-    // 색상 초기화 (Hex String -> ID 찾기)
-    // widget.mission.color가 Hex String이라면 매칭되는 ID 찾기
-    // 예시 로직:
-    // final foundColor = _colorOptions.firstWhere((c) => ...);
+    // ✅ 색상 초기화 (Hex String에서 ID 찾기)
+    _selectedColorId = _findColorIdFromHex(widget.mission.color);
 
-    _isPublic = false; // widget.mission.isPublic
+    // ✅ 공개 여부 초기화 (Mission 모델에 해당 필드가 있다면)
+    // _isPublic = widget.mission.isPublic ?? false;
+  }
+
+  // ✅ dispose 추가
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _timeController.dispose();
+    super.dispose();
+  }
+
+  // ✅ IconData에서 아이콘 ID 찾기
+  String _findIconIdFromIconData(IconData iconData) {
+    for (final option in _iconOptions) {
+      if (option['icon'] == iconData) {
+        return option['id'];
+      }
+    }
+    return 'sun'; // 기본값
+  }
+
+  // ✅ Hex 색상에서 색상 ID 찾기
+  String _findColorIdFromHex(String? hexColor) {
+    if (hexColor == null || hexColor.isEmpty) {
+      return 'orange'; // 기본값
+    }
+
+    // #RRGGBB -> 0xFFRRGGBB 형태로 변환하여 비교
+    String cleanHex = hexColor.replaceAll('#', '').toUpperCase();
+    int colorValue = int.tryParse('FF$cleanHex', radix: 16) ?? 0xFFFFD6A5;
+
+    for (final option in _colorOptions) {
+      if (option['color'] == colorValue) {
+        return option['id'];
+      }
+    }
+    return 'orange'; // 기본값
   }
 
   Map<String, dynamic> get _currentColor =>
-      _colorOptions.firstWhere((c) => c['id'] == _selectedColorId);
+      _colorOptions.firstWhere(
+            (c) => c['id'] == _selectedColorId,
+        orElse: () => _colorOptions[1], // orange
+      );
 
   Future<void> _selectTime() async {
+    // 기존 시간이 있으면 파싱해서 초기값으로 설정
+    TimeOfDay initialTime = TimeOfDay.now();
+    if (_timeController.text.isNotEmpty) {
+      final parts = _timeController.text.split(':');
+      if (parts.length == 2) {
+        final hour = int.tryParse(parts[0]) ?? 0;
+        final minute = int.tryParse(parts[1]) ?? 0;
+        initialTime = TimeOfDay(hour: hour, minute: minute);
+      }
+    }
+
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: initialTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.orange,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -82,25 +143,67 @@ class _EditMissionModalState extends State<EditMissionModal> {
     }
   }
 
-  void _handleSubmit() {
-    if (_titleController.text.trim().isEmpty) return;
+  // ✅ 유효성 검사
+  String? _validateTitle(String title) {
+    if (title.isEmpty) {
+      return '제목을 입력해주세요';
+    }
+    if (title.length > 50) {
+      return '제목은 50자 이하여야 합니다';
+    }
+    return null;
+  }
 
-    String colorHex = '#${Color(_currentColor['color']).value.toRadixString(16).substring(2).toUpperCase()}';
+  Future<void> _handleSubmit() async {
+    final title = _titleController.text.trim();
 
-    widget.onUpdateMission(
-      widget.mission.id,
-      _titleController.text,
-      _selectedIconId,
-      colorHex,
-      _timeController.text.isEmpty ? null : _timeController.text,
-      _isPublic,
-    );
-    Navigator.pop(context);
+    // 유효성 검사
+    final error = _validateTitle(title);
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    // 중복 제출 방지
+    if (_isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      String colorHex = '#${Color(_currentColor['color']).value.toRadixString(16).substring(2).toUpperCase()}';
+
+      widget.onUpdateMission(
+        widget.mission.id,
+        title,
+        _selectedIconId,
+        colorHex,
+        _timeController.text.isEmpty ? null : _timeController.text,
+        _isPublic,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류가 발생했습니다: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isValid = _titleController.text.trim().isNotEmpty &&
+        _titleController.text.trim().length <= 50;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -111,34 +214,79 @@ class _EditMissionModalState extends State<EditMissionModal> {
       ),
       child: Column(
         children: [
+          // 헤더
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: const Text("미션 수정하기", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(width: 40),
+                const Text(
+                  "미션 수정하기",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
           ),
           const Divider(height: 1),
+
+          // 콘텐츠
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
+                // 제목 입력
                 const Text("제목", style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _titleController,
+                  maxLength: 50,
                   decoration: InputDecoration(
                     hintText: "입력",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.orange),
+                    ),
                     contentPadding: const EdgeInsets.all(12),
+                    counterText: '',
                   ),
                   onChanged: (value) => setState(() {}),
                 ),
+
+                // 글자 수 표시
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_titleController.text.length}/50',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _titleController.text.length > 50
+                          ? Colors.red
+                          : Colors.grey,
+                    ),
+                  ),
+                ),
+
                 const SizedBox(height: 24),
+
+                // 아이콘 선택
                 const Text("아이콘", style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5, mainAxisSpacing: 8, crossAxisSpacing: 8, childAspectRatio: 1,
+                    crossAxisCount: 5,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1,
                   ),
                   itemCount: _iconOptions.length,
                   itemBuilder: (context, index) {
@@ -147,40 +295,79 @@ class _EditMissionModalState extends State<EditMissionModal> {
                     final activeColor = Color(_currentColor['darkColor']);
                     return GestureDetector(
                       onTap: () => setState(() => _selectedIconId = option['id']),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.orange.shade50 : Colors.transparent,
+                          color: isSelected
+                              ? Colors.orange.shade50
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isSelected ? Colors.orange.shade300 : Colors.grey.shade200, width: 2),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.orange.shade300
+                                : Colors.grey.shade200,
+                            width: 2,
+                          ),
                         ),
-                        child: Icon(option['icon'], color: isSelected ? activeColor : Colors.grey.shade400),
+                        child: Icon(
+                          option['icon'],
+                          color: isSelected ? activeColor : Colors.grey.shade400,
+                        ),
                       ),
                     );
                   },
                 ),
-                // (나머지 색상 선택 및 시간 설정 UI는 CreateMissionModal과 동일하므로 간략화)
+
                 const SizedBox(height: 24),
+
+                // 색상 선택
                 const Text("카드 색상", style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 12, runSpacing: 12,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: _colorOptions.map((option) {
                     final isSelected = _selectedColorId == option['id'];
                     return GestureDetector(
                       onTap: () => setState(() => _selectedColorId = option['id']),
-                      child: Container(
-                        width: 40, height: 40,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: Color(option['color']),
                           shape: BoxShape.circle,
-                          border: Border.all(color: isSelected ? Colors.grey.shade800 : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.grey.shade800
+                                : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                            BoxShadow(
+                              color: Color(option['color']).withOpacity(0.5),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            )
+                          ]
+                              : null,
                         ),
-                        child: isSelected ? Icon(Icons.check, size: 20, color: Colors.grey.shade800) : null,
+                        child: isSelected
+                            ? Icon(
+                          Icons.check,
+                          size: 20,
+                          color: Colors.grey.shade800,
+                        )
+                            : null,
                       ),
                     );
                   }).toList(),
                 ),
+
                 const SizedBox(height: 24),
+
+                // 시간 선택
                 const Text("시간 (선택사항)", style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 GestureDetector(
@@ -189,34 +376,108 @@ class _EditMissionModalState extends State<EditMissionModal> {
                     child: TextField(
                       controller: _timeController,
                       decoration: InputDecoration(
-                        hintText: "--:--", suffixIcon: const Icon(Icons.access_time),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        hintText: "--:--",
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_timeController.text.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () {
+                                  setState(() => _timeController.clear());
+                                },
+                              ),
+                            const Icon(Icons.access_time),
+                            const SizedBox(width: 8),
+                          ],
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         contentPadding: const EdgeInsets.all(12),
                       ),
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // 공개 여부
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "미션 공개",
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          "다른 사람들에게 미션을 공유합니다",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: _isPublic,
+                      onChanged: (value) => setState(() => _isPublic = value),
+                      activeColor: Colors.orange,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
+
+          // 버튼
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFEEEEEE)))),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                    child: Text("취소", style: TextStyle(color: Colors.grey.shade800)),
+                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      "취소",
+                      style: TextStyle(color: Colors.grey.shade800),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _titleController.text.trim().isNotEmpty ? _handleSubmit : null,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, padding: const EdgeInsets.symmetric(vertical: 16)),
-                    child: const Text("완료", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    onPressed: (isValid && !_isSubmitting) ? _handleSubmit : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.orange.shade200,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Text(
+                      "완료",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
