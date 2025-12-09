@@ -52,7 +52,6 @@ class _AppShellState extends State<AppShell> {
 
   PersonalityType? _personalityType;
 
-  // ❌ 삭제: List<Mission> _missions = [];
   List<Mission> _missionHistory = [];
 
   TabItem _currentTab = TabItem.home;
@@ -74,7 +73,6 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    // ❌ 삭제: _missions = Mission.getSampleMissions();
     _generateDummyAttendance();
   }
 
@@ -102,9 +100,6 @@ class _AppShellState extends State<AppShell> {
 
   // ✅ Firebase에 업데이트
   void _handleToggleMission(String id) async {
-    // 로컬 상태는 StreamBuilder가 자동으로 업데이트하므로 여기서는 Firebase만 업데이트
-    // 현재 missions를 가져와서 completed 토글
-    // (간단하게 하기 위해 직접 Firestore 업데이트)
     try {
       final doc = await FirebaseFirestore.instance
           .collection('missions')
@@ -112,7 +107,9 @@ class _AppShellState extends State<AppShell> {
           .get();
 
       if (doc.exists) {
-        final currentCompleted = doc.data()?['completed'] ?? false;
+        final data = doc.data();
+        // ✅ String/bool 둘 다 처리
+        final currentCompleted = data?['completed'] == true || data?['completed'] == 'true';
         await FirebaseFirestore.instance
             .collection('missions')
             .doc(id)
@@ -206,14 +203,12 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _handleSortMissions() {
-    // 정렬은 클라이언트 측에서만 처리 (실제로는 Firestore 쿼리로 처리하는 게 좋음)
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('미션이 정렬되었습니다.')),
     );
   }
 
   void _handleResetMissions() async {
-    // 모든 미션의 completed를 false로 변경
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('missions')
@@ -416,14 +411,15 @@ class _AppShellState extends State<AppShell> {
               return Center(child: Text('에러: ${snapshot.error}'));
             }
 
-            // Firestore 문서를 Mission 객체로 변환
+            // ✅ Firestore 문서를 Mission 객체로 변환 (String/bool 둘 다 처리)
             final missions = snapshot.data?.docs.map((doc) {
               final data = doc.data() as Map<String, dynamic>;
               return Mission(
                 id: doc.id,
                 title: data['title'] ?? '제목 없음',
                 description: data['description'] ?? '',
-                completed: data['completed'] ?? false,
+                // ✅ 핵심 수정: String이든 bool이든 처리
+                completed: data['completed'] == true || data['completed'] == 'true',
                 tag: data['tag'] ?? 'custom',
                 icon: 'star',
                 color: '#FFD6A5',
