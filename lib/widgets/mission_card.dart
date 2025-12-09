@@ -97,9 +97,12 @@ class MissionCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: hasPhoto ? Colors.transparent : Colors.white.withOpacity(0.5),
+                        // [수정] 이미지 소스 분기 처리 (URL vs 로컬 파일)
                         image: hasPhoto
                             ? DecorationImage(
-                          image: FileImage(File(mission.photo!)),
+                          image: mission.photo!.startsWith('http')
+                              ? NetworkImage(mission.photo!) as ImageProvider
+                              : FileImage(File(mission.photo!)),
                           fit: BoxFit.cover,
                         )
                             : null,
@@ -247,7 +250,10 @@ class MissionCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: Image.file(File(path)),
+              // [수정] 팝업 다이얼로그에서도 이미지 소스 분기 처리
+              child: path.startsWith('http')
+                  ? Image.network(path, fit: BoxFit.cover)
+                  : Image.file(File(path), fit: BoxFit.cover),
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white),

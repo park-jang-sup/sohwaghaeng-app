@@ -27,23 +27,18 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
   Color _planetColor = const Color(0xFFFF8C42); // 기본 주황색
   DateTime _selectedDate = DateTime.now();
 
-  // --- 갤러리 필터 상태 변수 (복원됨) ---
+  // --- 갤러리 필터 상태 변수 ---
   bool _isSearchOpen = false;
   String _searchQuery = "";
   String? _selectedMonthFilter;
   List<IconData> _selectedIconFilters = [];
 
-  // [데이터] 갤러리 사진 데이터 (이전 코드 복원)
-  // 실제 앱에서는 widget.missionHistory 중 photo가 있는 항목을 변환해서 사용해야 합니다.
+  // [데이터] 갤러리 사진 데이터
   final List<Map<String, dynamic>> _galleryPhotos = [
     {'id': '1', 'title': '아침 스트레칭 10분', 'date': '2024-12-05', 'month': '12월', 'icon': Icons.wb_sunny_rounded, 'image': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400', 'color': Colors.red.shade100},
     {'id': '2', 'title': '커피 한 잔의 여유', 'date': '2024-12-04', 'month': '12월', 'icon': Icons.coffee_rounded, 'image': 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400', 'color': Colors.brown.shade100},
     {'id': '3', 'title': '산책하기', 'date': '2024-12-03', 'month': '12월', 'icon': Icons.directions_walk_rounded, 'image': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400', 'color': Colors.orange.shade100},
     {'id': '4', 'title': '일몰 감상', 'date': '2024-11-29', 'month': '11월', 'icon': Icons.wb_twilight_rounded, 'image': 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400', 'color': Colors.blue.shade100},
-    {'id': '5', 'title': '좋아하는 음악 듣기', 'date': '2024-11-28', 'month': '11월', 'icon': Icons.music_note_rounded, 'image': 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400', 'color': Colors.purple.shade100},
-    {'id': '6', 'title': '독서 30분', 'date': '2024-11-27', 'month': '11월', 'icon': Icons.menu_book_rounded, 'image': 'https://images.unsplash.com/photo-1495364141860-b0d03eccd065?w=400', 'color': Colors.grey.shade200},
-    {'id': '7', 'title': '등산하기', 'date': '2024-10-20', 'month': '10월', 'icon': Icons.landscape_rounded, 'image': 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400', 'color': Colors.green.shade100},
-    {'id': '8', 'title': '자전거 타기', 'date': '2024-10-15', 'month': '10월', 'icon': Icons.pedal_bike_rounded, 'image': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400', 'color': Colors.teal.shade100},
   ];
 
   final List<IconData> _availableIcons = [
@@ -59,7 +54,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     final now = DateTime.now();
     final thisMonth = widget.missionHistory.where((m) {
       if (m.completedAt == null) return false;
-      final d = DateTime.parse(m.completedAt!);
+      // [수정] DateTime.parse 삭제
+      final d = m.completedAt!;
       return d.year == now.year && d.month == now.month;
     }).length;
 
@@ -163,7 +159,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     switch (_selectedCategory) {
       case 'planet': return _buildPlanetView();
       case 'calendar': return _buildCalendarView();
-      case 'gallery': return _buildGalleryView(); // [복원됨]
+      case 'gallery': return _buildGalleryView();
       default: return Container();
     }
   }
@@ -303,7 +299,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
         eventLoader: (day) {
           final count = widget.missionHistory.where((m) {
             if (m.completedAt == null) return false;
-            return isSameDay(DateTime.parse(m.completedAt!), day);
+            // [수정] DateTime.parse 삭제
+            return isSameDay(m.completedAt!, day);
           }).length;
 
           String key = day.toIso8601String().split('T')[0];
@@ -317,7 +314,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
   }
 
   // ==========================================
-  // [3] 갤러리 뷰 (완벽 복원됨)
+  // [3] 갤러리 뷰
   // ==========================================
   Widget _buildGalleryView() {
     // 1. 필터링 로직
@@ -617,7 +614,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     // 3번 사진 스타일의 상세 뷰
     final dayMissions = widget.missionHistory.where((m) {
       if (m.completedAt == null) return false;
-      return isSameDay(DateTime.parse(m.completedAt!), date);
+      // [수정] DateTime.parse 삭제
+      return isSameDay(m.completedAt!, date);
     }).toList();
 
     final dateStr = DateFormat('M월 d일 EEEE', 'ko_KR').format(date);
@@ -646,7 +644,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
 
             ...dayMissions.map((mission) {
               final timeStr = mission.completedAt != null
-                  ? DateFormat('a h:mm', 'ko_KR').format(DateTime.parse(mission.completedAt!))
+              // [수정] DateTime.parse 삭제
+                  ? DateFormat('a h:mm', 'ko_KR').format(mission.completedAt!)
                   : '';
 
               return Container(
@@ -721,7 +720,8 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
 
               ...widget.missionHistory.reversed.map((mission) {
                 final dateStr = mission.completedAt != null
-                    ? DateFormat('yyyy.MM.dd a h:mm', 'ko_KR').format(DateTime.parse(mission.completedAt!))
+                // [수정] DateTime.parse 삭제
+                    ? DateFormat('yyyy.MM.dd a h:mm', 'ko_KR').format(mission.completedAt!)
                     : '';
                 return ListTile(
                   contentPadding: EdgeInsets.zero,

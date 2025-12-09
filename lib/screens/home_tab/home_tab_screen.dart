@@ -9,12 +9,9 @@ class HomeTabScreen extends StatefulWidget {
   final Function(String title, String icon, String color, bool isPublic, String? time) onAddMission;
   final Function(String) onDeleteMission;
   final Function(String, String?) onAddPhoto;
-
-  // [신규] 상위로 이벤트를 전달하기 위한 콜백 추가
-  final VoidCallback onFinishDay;   // 하루 마무리
-  final VoidCallback onSortMissions; // 미션 정렬
-  final VoidCallback onResetMissions; // 완료 미션 초기화
-
+  final VoidCallback onFinishDay;
+  final VoidCallback onSortMissions;
+  final VoidCallback onResetMissions;
   final String? currentMood;
   final int streakDays;
 
@@ -25,9 +22,9 @@ class HomeTabScreen extends StatefulWidget {
     required this.onAddMission,
     required this.onDeleteMission,
     required this.onAddPhoto,
-    required this.onFinishDay,    // 추가
-    required this.onSortMissions, // 추가
-    required this.onResetMissions,// 추가
+    required this.onFinishDay,
+    required this.onSortMissions,
+    required this.onResetMissions,
     this.currentMood,
     required this.streakDays,
   });
@@ -60,7 +57,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
   }
 
   List<Mission> get _filteredMissions {
-    // 탭 필터링
     List<Mission> result = widget.missions;
     if (_filterTab == 'mine') {
       result = widget.missions.where((m) => m.source == 'mine').toList();
@@ -70,7 +66,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     return result;
   }
 
-  // [신규] 하루 마무리 다이얼로그 표시
   void _showFinishDialog() {
     final now = DateTime.now();
     showDialog(
@@ -83,7 +78,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 닫기 버튼 (우상단)
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
@@ -91,15 +85,9 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                   child: Icon(Icons.close, size: 20, color: Colors.grey.shade400),
                 ),
               ),
-              const Text(
-                "오늘 하루 마무리",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("오늘 하루 마무리", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              Text(
-                "${now.month}월 ${now.day}일을 마치겠어요?",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
-              ),
+              Text("${now.month}월 ${now.day}일을 마치겠어요?", style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -119,10 +107,10 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        widget.onFinishDay(); // 부모 콜백 호출
+                        widget.onFinishDay();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF6B00), // 오렌지색
+                        backgroundColor: const Color(0xFFFF6B00),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
@@ -185,10 +173,8 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                           const SizedBox(width: 8),
                           _buildCircleBtn(Icons.share, Colors.grey.shade100, Colors.grey.shade700, () {}),
                           const SizedBox(width: 8),
-
-                          // [수정] 더보기 메뉴 버튼 (PopupMenuButton)
                           PopupMenuButton<String>(
-                            offset: const Offset(0, 45), // 메뉴 위치 조정
+                            offset: const Offset(0, 45),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             color: Colors.white,
                             surfaceTintColor: Colors.white,
@@ -196,16 +182,14 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                             onSelected: (value) {
                               if (value == 'sort') widget.onSortMissions();
                               if (value == 'reset') widget.onResetMissions();
-                              // 'alarm', 'template'은 추후 구현
                             },
                             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                               _buildPopupItem('sort', '미션 정렬'),
                               _buildPopupItem('alarm', '알림 설정'),
                               _buildPopupItem('template', '미션 템플릿'),
-                              const PopupMenuDivider(), // 구분선
+                              const PopupMenuDivider(),
                               _buildPopupItem('reset', '완료 미션 초기화'),
                             ],
-                            // 아이콘 버튼 모양 유지
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
@@ -275,8 +259,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // [수정] 깃발 버튼 - 다이얼로그 연결
                     GestureDetector(
                       onTap: _showFinishDialog,
                       child: Container(
@@ -314,7 +296,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // 리스트 렌더링
                       if (_filteredMissions.isEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 40),
@@ -327,7 +308,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                           ),
                         )
                       else ...[
-                        // 미완료
                         if (_filteredMissions.any((m) => !m.completed)) ...[
                           const Align(alignment: Alignment.centerLeft, child: Padding(
                             padding: EdgeInsets.only(bottom: 8.0, left: 4),
@@ -341,7 +321,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
                             onAddPhoto: widget.onAddPhoto,
                           )),
                         ],
-                        // 완료
                         if (_filteredMissions.any((m) => m.completed)) ...[
                           const SizedBox(height: 16),
                           const Align(alignment: Alignment.centerLeft, child: Padding(
