@@ -40,6 +40,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    androidResources {
+        // .tflite / .lite 파일 압축하지 않도록 설정
+        noCompress += listOf("tflite", "lite")
+    }
 }
 
 flutter {
