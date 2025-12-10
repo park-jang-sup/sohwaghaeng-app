@@ -31,6 +31,9 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   String _searchQuery = '';
   bool _isLoading = false;
 
+  // ✅ 슬라이더용 컨트롤러
+  PageController? _pageController;
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +118,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _pageController?.dispose();
     super.dispose();
   }
 
@@ -440,7 +444,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
-  // ✅ 슬라이더 + 인디케이터 추가
+  // ✅ 슬라이더 - 버튼으로 페이지 이동
   Widget _buildSliderList(List<BrowserMission> missions) {
     if (missions.isEmpty) {
       return SliverToBoxAdapter(
@@ -456,23 +460,94 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       );
     }
 
+    _pageController ??= PageController(viewportFraction: 0.85);
+
     return SliverToBoxAdapter(
       child: Column(
         children: [
           SizedBox(
-            height: 320, // ✅ 높이 증가 (300 → 320)
-            child: PageView.builder(
-              controller: PageController(viewportFraction: 0.85),
-              itemCount: missions.length,
-              onPageChanged: (idx) => setState(() => _currentSlideIndex = idx),
-              itemBuilder: (context, index) {
-                final mission = missions[index];
-                return Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                  child: _buildMissionSliderCard(mission),
-                );
-              },
+            height: 320,
+            child: Stack(
+              children: [
+                // 카드 슬라이더
+                PageView.builder(
+                  controller: _pageController,
+                  itemCount: missions.length,
+                  onPageChanged: (idx) => setState(() => _currentSlideIndex = idx),
+                  physics: const NeverScrollableScrollPhysics(), // ✅ 스와이프 비활성화
+                  itemBuilder: (context, index) {
+                    final mission = missions[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                      child: _buildMissionSliderCard(mission),
+                    );
+                  },
+                ),
+                // ✅ 왼쪽 버튼
+                if (_currentSlideIndex > 0)
+                  Positioned(
+                    left: 4,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          _pageController?.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.chevron_left, color: Colors.orange),
+                        ),
+                      ),
+                    ),
+                  ),
+                // ✅ 오른쪽 버튼
+                if (_currentSlideIndex < missions.length - 1)
+                  Positioned(
+                    right: 4,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          _pageController?.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.chevron_right, color: Colors.orange),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           // ✅ 페이지 인디케이터

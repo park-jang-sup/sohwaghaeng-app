@@ -139,6 +139,7 @@ class DatabaseService {
     String? color,
     String? author,
     String? time,
+    String? source, // ✅ source 파라미터 추가
   }) async {
     if (currentUserId == null) {
       debugPrint("❌ 로그인이 필요합니다.");
@@ -157,7 +158,7 @@ class DatabaseService {
         'author': author ?? '나',
         'time': time,
         'timestamp': DateTime.now(),
-        'source': 'mine',
+        'source': source ?? 'mine', // ✅ source 파라미터 사용
       });
       debugPrint("✅ 내 미션 추가 완료!");
       return true;

@@ -236,6 +236,7 @@ class _AppShellState extends State<AppShell> {
         iconCode: mission.iconData.codePoint,
         color: mission.color,
         author: mission.source,
+        source: 'imported', // ✅ 탐색에서 가져온 미션은 'imported'로 분류
       );
 
       // ✅ 담기 횟수 증가
