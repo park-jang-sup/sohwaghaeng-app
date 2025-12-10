@@ -5,7 +5,7 @@ class TagSelectionButton extends StatelessWidget {
   final IconData icon;
   final bool isSelected;
   final VoidCallback onPressed;
-  final bool enabled; // ✅ 비활성화 상태 추가
+  final bool enabled;
 
   const TagSelectionButton({
     super.key,
@@ -38,7 +38,7 @@ class TagSelectionButton extends StatelessWidget {
         ? primaryColor
         : Colors.grey.shade600;
 
-    final double scale = isSelected ? 1.02 : 1.0; // ✅ 스케일 축소 (1.05 → 1.02)
+    final double scale = isSelected ? 1.02 : 1.0;
 
     return Semantics(
       button: true,
@@ -60,10 +60,10 @@ class TagSelectionButton extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
             alignment: Alignment.centerLeft,
-            // ✅ 터치 피드백 색상
             foregroundColor: primaryColor,
-            overlayColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.pressed)) {
+          ).copyWith(
+            overlayColor: MaterialStateProperty.resolveWith((states) {
+              if (states.contains(MaterialState.pressed)) {
                 return Colors.orange.withOpacity(0.1);
               }
               return null;
