@@ -4,6 +4,9 @@ import 'mission_browser_widgets.dart';
 
 /// 슬라이더 모드 전용 뷰
 class MissionSliderView extends StatefulWidget {
+  // 부모로부터 컨트롤러를 받음
+  final PageController pageController;
+
   final List<BrowserMission> allMissions;
   final List<BrowserMission> filteredMissions;
   final Set<String> addedMissionIds;
@@ -23,6 +26,7 @@ class MissionSliderView extends StatefulWidget {
 
   const MissionSliderView({
     super.key,
+    required this.pageController,
     required this.allMissions,
     required this.filteredMissions,
     required this.addedMissionIds,
@@ -46,28 +50,41 @@ class MissionSliderView extends StatefulWidget {
 }
 
 class _MissionSliderViewState extends State<MissionSliderView> {
-  late PageController _pageController;
   int _currentSlideIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.85);
+    // 화면이 다시 그려질 때 현재 페이지 위치를 컨트롤러에서 가져옴
+    if (widget.pageController.hasClients) {
+      _currentSlideIndex = widget.pageController.page?.round() ?? 0;
+    }
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  // 자석 효과 함수
+  void _snapToNearestPage() {
+    if (!widget.pageController.hasClients) return;
+
+    final double currentPosition = widget.pageController.page ?? 0.0;
+    int targetPage = currentPosition.round();
+
+    if (targetPage < 0) targetPage = 0;
+    if (targetPage >= widget.filteredMissions.length) {
+      targetPage = widget.filteredMissions.length - 1;
+    }
+
+    widget.pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 검색바
         _buildSearchBar(),
-        // 스크롤 가능한 영역
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -85,6 +102,91 @@ class _MissionSliderViewState extends State<MissionSliderView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSlider() {
+    if (widget.filteredMissions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Text(
+            '검색 결과가 없습니다',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 320,
+      child: Stack(
+        children: [
+          // Listener를 사용하여 드래그 끊김 현상 방지
+          Listener(
+            onPointerMove: (details) {
+              if (widget.pageController.hasClients) {
+                widget.pageController
+                    .jumpTo(widget.pageController.offset - details.delta.dx);
+              }
+            },
+            onPointerUp: (_) => _snapToNearestPage(),
+            onPointerCancel: (_) => _snapToNearestPage(),
+            child: PageView.builder(
+              controller: widget.pageController,
+              itemCount: widget.filteredMissions.length,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (idx) => setState(() => _currentSlideIndex = idx),
+              itemBuilder: (context, index) {
+                final mission = widget.filteredMissions[index];
+                return Padding(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  child: MissionSliderCard(
+                    mission: mission,
+                    isAdded: widget.addedMissionIds.contains(mission.id),
+                    isLiked: widget.likedMissions.contains(mission.id),
+                    onAddTap: () => widget.onAddMission(mission),
+                    onLikeTap: () => widget.onToggleLike(mission.id),
+                  ),
+                );
+              },
+            ),
+          ),
+          // 왼쪽 버튼
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: SliderNavButton(
+                icon: Icons.chevron_left,
+                enabled: _currentSlideIndex > 0,
+                onTap: () => widget.pageController.previousPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                ),
+              ),
+            ),
+          ),
+          // 오른쪽 버튼
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: SliderNavButton(
+                icon: Icons.chevron_right,
+                enabled: _currentSlideIndex < widget.filteredMissions.length - 1,
+                onTap: () => widget.pageController.nextPage(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -106,12 +208,20 @@ class _MissionSliderViewState extends State<MissionSliderView> {
                 child: TextField(
                   controller: widget.searchController,
                   onChanged: widget.onSearchChanged,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: '소확행을 검색하세요',
-                    prefixIcon: Icon(Icons.search, color: Colors.grey),
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    // ✅ X 버튼 추가
+                    suffixIcon: widget.searchQuery.isNotEmpty
+                        ? GestureDetector(
+                      onTap: widget.onRefresh,
+                      child: const Icon(Icons.close,
+                          color: Colors.grey, size: 20),
+                    )
+                        : null,
                     border: InputBorder.none,
                     contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                 ),
               ),
@@ -191,10 +301,8 @@ class _MissionSliderViewState extends State<MissionSliderView> {
             ],
           ),
           TextButton(
-            onPressed: () {
-              widget.onSortChanged(
-                  widget.sortBy == 'latest' ? 'likes' : 'latest');
-            },
+            onPressed: () => widget
+                .onSortChanged(widget.sortBy == 'latest' ? 'likes' : 'latest'),
             child: Row(
               children: [
                 Icon(
@@ -210,80 +318,6 @@ class _MissionSliderViewState extends State<MissionSliderView> {
               ],
             ),
           )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSlider() {
-    if (widget.filteredMissions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Text(
-            '검색 결과가 없습니다',
-            style: TextStyle(color: Colors.grey.shade500),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 320,
-      child: Stack(
-        children: [
-          // 카드 슬라이더
-          PageView.builder(
-            controller: _pageController,
-            itemCount: widget.filteredMissions.length,
-            onPageChanged: (idx) => setState(() => _currentSlideIndex = idx),
-            itemBuilder: (context, index) {
-              final mission = widget.filteredMissions[index];
-              return Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                child: MissionSliderCard(
-                  mission: mission,
-                  isAdded: widget.addedMissionIds.contains(mission.id),
-                  isLiked: widget.likedMissions.contains(mission.id),
-                  onAddTap: () => widget.onAddMission(mission),
-                  onLikeTap: () => widget.onToggleLike(mission.id),
-                ),
-              );
-            },
-          ),
-          // 왼쪽 버튼
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: SliderNavButton(
-                icon: Icons.chevron_left,
-                enabled: _currentSlideIndex > 0,
-                onTap: () => _pageController.previousPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                ),
-              ),
-            ),
-          ),
-          // 오른쪽 버튼
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: SliderNavButton(
-                icon: Icons.chevron_right,
-                enabled: _currentSlideIndex < widget.filteredMissions.length - 1,
-                onTap: () => _pageController.nextPage(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
