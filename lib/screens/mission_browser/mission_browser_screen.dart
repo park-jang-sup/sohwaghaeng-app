@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/models/browser_mission.dart';
 import 'package:b612_1/services/database_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'mission_browser_widgets.dart';
 import 'mission_slider_view.dart';
 
@@ -28,19 +28,17 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   String _sortBy = 'latest';
   String _viewMode = 'grid';
   Set<String> _likedMissions = {};
-  String? _selectedFilterTag; // 선택된 태그의 '영어 키값'이 저장됨 (예: 'coffee')
+  String? _selectedFilterTag; // 선택된 태그 (예: 'coffee')
   String _searchQuery = '';
 
-  // ✅ [핵심] 태그 통합 관리 맵 (Key: DB저장값/아이콘이름, Value: 화면표시이름)
-  // 여기에 정의된 것만 필터로 뜹니다.
   final Map<String, String> _tagMap = {
-    'coffee': '☕ 휴식',   // icon: coffee, tag: coffee, 화면: 휴식
-    'leaf': '🌿 건강',    // icon: leaf, tag: leaf, 화면: 건강
-    'heart': '❤️ 마음',   // icon: heart, tag: heart, 화면: 마음
-    'book': '📚 자기계발', // icon: book, tag: book, 화면: 자기계발
-    'sun': '☀️ 일상',     // icon: sun, tag: sun, 화면: 일상
-    'star': '⭐ 특별',    // icon: star, tag: star, 화면: 특별
-    // 필요하면 여기에 더 추가하면 됩니다 (예: 'gym': '💪 운동')
+    'coffee': '☕ 휴식',
+    'leaf': '🌿 건강',
+    'heart': '❤️ 마음',
+    'book': '📚 자기계발',
+    'sun': '☀️ 일상',
+    'star': '⭐ 특별',
+    'gym': '💪 운동',
   };
 
   late PageController _pageController;
@@ -70,7 +68,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   }
 
   Future<void> _toggleLike(String missionId) async {
-    // (이전과 동일한 좋아요 로직)
     try {
       final db = FirebaseFirestore.instance;
       final ref = db.collection('missions').doc(missionId);
@@ -99,14 +96,14 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       return;
     }
 
-    // 미션 추가 시 로직
     final colorHex = '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
+
     final newMission = Mission(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: bm.title,
       description: bm.description,
-      tag: bm.tag, // 여기서도 태그 그대로 유지
-      icon: bm.tag, // 아이콘 이름도 태그와 동일하게 사용
+      tag: bm.tag,
+      icon: bm.tag,
       source: 'imported',
       color: colorHex,
     );
@@ -117,7 +114,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
-  // ✅ [수정] 필터 다이얼로그: _tagMap을 기반으로 생성
   void _showFilterDialog() {
     showDialog(
       context: context,
@@ -127,8 +123,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
           spacing: 8,
           runSpacing: 8,
           children: _tagMap.entries.map((entry) {
-            final key = entry.key;   // 예: 'coffee'
-            final label = entry.value; // 예: '☕ 휴식'
+            final key = entry.key;
+            final label = entry.value;
 
             return ChoiceChip(
               label: Text(label),
@@ -171,28 +167,24 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
             return const Center(child: Text('아직 미션이 없습니다'));
           }
 
+          // 1. 모델로 변환 (여기서 위에서 수정한 BrowserMission.fromFirestore가 호출됨)
           final allMissions = snapshot.data!.docs
               .map((doc) => BrowserMission.fromFirestore(doc))
               .toList();
 
-          // ✅ [수정] 필터링 로직 강화
+          // 2. 필터링 로직
           var filteredMissions = allMissions.where((m) {
             final authorName = m.author ?? '';
             final matchQuery = m.title.contains(_searchQuery) ||
                 authorName.contains(_searchQuery);
 
-            // 태그 매칭 로직:
-            // 1. 필터가 선택되지 않았으면 통과
-            // 2. 미션의 tag가 필터키와 같으면 통과 (예: m.tag == 'coffee')
-            // 3. (보너스) 미션 tag가 없어서 icon 이름을 대신 써야 한다면 icon 이름과 비교
-            //    (BrowserMission 모델에 iconString 필드가 있다고 가정하거나, 보통 tag 필드에 저장됨)
             final matchTag = _selectedFilterTag == null ||
                 m.tag == _selectedFilterTag;
 
             return matchQuery && matchTag;
           }).toList();
 
-          // 정렬
+          // 3. 정렬 로직
           if (_sortBy == 'likes') {
             filteredMissions.sort((a, b) => b.likes.compareTo(a.likes));
           } else {
@@ -203,6 +195,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
             });
           }
 
+          // 뷰 모드에 따른 화면 반환
           if (_viewMode == 'slider') {
             return MissionSliderView(
               pageController: _pageController,
@@ -245,10 +238,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
-  // ... (나머지 _buildSearchBar, _buildFeaturedSection 등은 기존 코드 유지)
-  // 위젯 코드는 이전 답변의 코드와 동일하므로 _tagMap과 필터 로직이 바뀐 위 부분만 적용해도 됩니다.
-
-  // (편의를 위해 _buildSearchBar 등 하위 위젯이 포함된 전체가 필요하면 말씀해주세요!)
   Widget _buildSearchBar() {
     return SliverAppBar(
       floating: true,
