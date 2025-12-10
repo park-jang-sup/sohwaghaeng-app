@@ -48,7 +48,7 @@ class TagSelectionButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(scale),
+        transform: Matrix4.identity()..scale(scale, scale),
         transformAlignment: Alignment.center,
         child: OutlinedButton.icon(
           onPressed: enabled ? onPressed : null,
@@ -62,6 +62,7 @@ class TagSelectionButton extends StatelessWidget {
             alignment: Alignment.centerLeft,
             // ✅ 터치 피드백 색상
             foregroundColor: primaryColor,
+          ).copyWith(
             overlayColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.pressed)) {
                 return Colors.orange.withOpacity(0.1);
