@@ -30,21 +30,23 @@ class DatabaseService {
         'social_type': 'google',
       }, SetOptions(merge: true));
     } catch (e) {
-      print("❌ 구글 유저 정보 저장 실패: $e");
+      debugPrint("❌ 구글 유저 정보 저장 실패: $e");
     }
   }
 
+  // ✅ personalityType 파라미터 추가
   Future<void> saveSocialUser({
     required String uid,
     required String email,
     required String nickname,
     String? photoUrl,
     required String socialType,
+    String? personalityType,
   }) async {
     try {
       final firebaseUid = _auth.currentUser?.uid;
       if (firebaseUid == null) {
-        print("❌ Firebase UID가 없습니다. 로그인 먼저 필요!");
+        debugPrint("❌ Firebase UID가 없습니다. 로그인 먼저 필요!");
         return;
       }
 
@@ -55,11 +57,12 @@ class DatabaseService {
         'photo_url': photoUrl,
         'last_login': DateTime.now(),
         'social_type': socialType,
+        'personality_type': personalityType,
       }, SetOptions(merge: true));
 
-      print("✅ $socialType 유저 정보 저장 완료 (Firebase UID: $firebaseUid)");
+      debugPrint("✅ $socialType 유저 정보 저장 완료 (Firebase UID: $firebaseUid)");
     } catch (e) {
-      print("❌ $socialType 유저 정보 저장 실패: $e");
+      debugPrint("❌ $socialType 유저 정보 저장 실패: $e");
     }
   }
 
@@ -81,7 +84,7 @@ class DatabaseService {
       }
       return null;
     } catch (e) {
-      print("❌ 사용자 검색 실패: $e");
+      debugPrint("❌ 사용자 검색 실패: $e");
       return null;
     }
   }
@@ -92,7 +95,7 @@ class DatabaseService {
       final doc = await _db.collection('users').doc(currentUserId).get();
       return doc.data();
     } catch (e) {
-      print("❌ 사용자 정보 조회 실패: $e");
+      debugPrint("❌ 사용자 정보 조회 실패: $e");
       return null;
     }
   }
@@ -112,7 +115,7 @@ class DatabaseService {
   // ✅ [홈/기록 탭용] "내"가 추가한 미션만 가져오기
   Stream<QuerySnapshot> getUserMissionsStream() {
     if (currentUserId == null) {
-      print("⚠️ 로그인 필요: getUserMissionsStream");
+      debugPrint("⚠️ 로그인 필요: getUserMissionsStream");
       return const Stream.empty();
     }
 
@@ -122,9 +125,8 @@ class DatabaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .handleError((error) {
-      // ✅ 인덱스 에러 등 처리
-      print("❌ 미션 스트림 에러: $error");
-      print("💡 Firebase Console에서 복합 인덱스 생성 필요할 수 있습니다.");
+      debugPrint("❌ 미션 스트림 에러: $error");
+      debugPrint("💡 Firebase Console에서 복합 인덱스 생성 필요할 수 있습니다.");
     });
   }
 
@@ -136,9 +138,10 @@ class DatabaseService {
     required int iconCode,
     String? color,
     String? author,
+    String? time,
   }) async {
     if (currentUserId == null) {
-      print("❌ 로그인이 필요합니다.");
+      debugPrint("❌ 로그인이 필요합니다.");
       return false;
     }
 
@@ -152,24 +155,144 @@ class DatabaseService {
         'color': color ?? '#FFFFFF',
         'completed': false,
         'author': author ?? '나',
+        'time': time,
         'timestamp': DateTime.now(),
         'source': 'mine',
       });
-      print("✅ 내 미션 추가 완료!");
+      debugPrint("✅ 내 미션 추가 완료!");
       return true;
     } catch (e) {
-      print("❌ 미션 추가 에러: $e");
+      debugPrint("❌ 미션 추가 에러: $e");
       return false;
     }
   }
 
+  // ===============================================================
+  // ✅ [NEW] 공개 미션 추가 (모든 사용자가 탐색 탭에서 볼 수 있음)
+  // ===============================================================
+  Future<String?> addPublicMission({
+    required String title,
+    required String description,
+    required String tag,
+    required int iconCode,
+    String? color,
+  }) async {
+    if (currentUserId == null) {
+      debugPrint("❌ 로그인이 필요합니다.");
+      return null;
+    }
+
+    try {
+      // 작성자 닉네임 가져오기
+      final userData = await getCurrentUserData();
+      final authorName = userData?['nickname'] ?? '익명';
+
+      final docRef = await _db.collection('missions').add({
+        'title': title,
+        'description': description,
+        'tag': tag,
+        'icon_code': iconCode,
+        'color': color ?? '#FFFFFF',
+        'author': authorName,
+        'author_id': currentUserId, // 작성자 ID (수정/삭제 권한 확인용)
+        'likes': 0,
+        'addedCount': 0,
+        'timestamp': DateTime.now(),
+      });
+
+      debugPrint("✅ 공개 미션 추가 완료! (ID: ${docRef.id})");
+      return docRef.id; // 생성된 문서 ID 반환
+    } catch (e) {
+      debugPrint("❌ 공개 미션 추가 에러: $e");
+      return null;
+    }
+  }
+
+  // ✅ [NEW] 공개 미션 수정 (작성자만 가능)
+  Future<bool> updatePublicMission(
+      String missionId,
+      Map<String, dynamic> data,
+      ) async {
+    if (currentUserId == null) return false;
+
+    try {
+      // 작성자 확인
+      final doc = await _db.collection('missions').doc(missionId).get();
+      if (!doc.exists) return false;
+
+      final authorId = doc.data()?['author_id'];
+      if (authorId != currentUserId) {
+        debugPrint("❌ 수정 권한이 없습니다.");
+        return false;
+      }
+
+      await _db.collection('missions').doc(missionId).update(data);
+      debugPrint("✅ 공개 미션 수정 완료!");
+      return true;
+    } catch (e) {
+      debugPrint("❌ 공개 미션 수정 에러: $e");
+      return false;
+    }
+  }
+
+  // ✅ [NEW] 공개 미션 삭제 (작성자만 가능)
+  Future<bool> deletePublicMission(String missionId) async {
+    if (currentUserId == null) return false;
+
+    try {
+      // 작성자 확인
+      final doc = await _db.collection('missions').doc(missionId).get();
+      if (!doc.exists) return false;
+
+      final authorId = doc.data()?['author_id'];
+      if (authorId != currentUserId) {
+        debugPrint("❌ 삭제 권한이 없습니다.");
+        return false;
+      }
+
+      await _db.collection('missions').doc(missionId).delete();
+      debugPrint("✅ 공개 미션 삭제 완료!");
+      return true;
+    } catch (e) {
+      debugPrint("❌ 공개 미션 삭제 에러: $e");
+      return false;
+    }
+  }
+
+  // ✅ [NEW] 내가 작성한 공개 미션 목록 가져오기
+  Stream<QuerySnapshot> getMyPublicMissionsStream() {
+    if (currentUserId == null) {
+      return const Stream.empty();
+    }
+
+    return _db
+        .collection('missions')
+        .where('author_id', isEqualTo: currentUserId)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+  }
+
+  // ✅ [NEW] 미션 담기 횟수 증가 (다른 사용자가 담을 때)
+  Future<void> incrementAddedCount(String missionId) async {
+    try {
+      await _db.collection('missions').doc(missionId).update({
+        'addedCount': FieldValue.increment(1),
+      });
+    } catch (e) {
+      debugPrint("❌ 담기 횟수 증가 에러: $e");
+    }
+  }
+
   // [미션 상태 수정] 완료 체크, 사진 URL 저장 등
-  Future<bool> updateUserMission(String missionId, Map<String, dynamic> data) async {
+  Future<bool> updateUserMission(
+      String missionId,
+      Map<String, dynamic> data,
+      ) async {
     try {
       await _db.collection('user_missions').doc(missionId).update(data);
       return true;
     } catch (e) {
-      print("❌ 미션 수정 에러: $e");
+      debugPrint("❌ 미션 수정 에러: $e");
       return false;
     }
   }
@@ -180,7 +303,7 @@ class DatabaseService {
       await _db.collection('user_missions').doc(missionId).delete();
       return true;
     } catch (e) {
-      print("❌ 미션 삭제 에러: $e");
+      debugPrint("❌ 미션 삭제 에러: $e");
       return false;
     }
   }
@@ -191,33 +314,28 @@ class DatabaseService {
   Future<String?> uploadImage(String filePath) async {
     if (filePath.isEmpty) return null;
     if (currentUserId == null) {
-      print("❌ 로그인이 필요합니다.");
+      debugPrint("❌ 로그인이 필요합니다.");
       return null;
     }
 
     File file = File(filePath);
     if (!file.existsSync()) {
-      print("❌ 파일이 존재하지 않습니다.");
+      debugPrint("❌ 파일이 존재하지 않습니다.");
       return null;
     }
 
     try {
-      // 1. 파일 이름 만들기 (중복 방지를 위해 현재 시간 사용)
       String fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
+      Reference ref =
+      _storage.ref().child('mission_photos/$currentUserId/$fileName');
 
-      // 2. ✅ 저장 경로에 사용자 ID 포함 (사용자별 폴더 분리)
-      Reference ref = _storage.ref().child('mission_photos/$currentUserId/$fileName');
-
-      // 3. 파일 업로드 수행
       await ref.putFile(file);
-
-      // 4. 업로드된 파일의 인터넷 주소(URL) 받기
       String downloadUrl = await ref.getDownloadURL();
-      print("✅ 이미지 업로드 성공: $downloadUrl");
+      debugPrint("✅ 이미지 업로드 성공: $downloadUrl");
 
       return downloadUrl;
     } catch (e) {
-      print("❌ 이미지 업로드 실패: $e");
+      debugPrint("❌ 이미지 업로드 실패: $e");
       return null;
     }
   }
@@ -225,7 +343,12 @@ class DatabaseService {
   // ===============================================================
   // 4. 미션 인증 (Completed Missions - 별도 기록용)
   // ===============================================================
-  Future<bool> completeMission(String uid, String missionTitle, String review, String photoUrl) async {
+  Future<bool> completeMission(
+      String uid,
+      String missionTitle,
+      String review,
+      String photoUrl,
+      ) async {
     try {
       await _db.collection('completed_missions').add({
         'user_uid': uid,
@@ -236,7 +359,7 @@ class DatabaseService {
       });
       return true;
     } catch (e) {
-      print("❌ 인증 저장 실패: $e");
+      debugPrint("❌ 인증 저장 실패: $e");
       return false;
     }
   }
@@ -248,7 +371,7 @@ class DatabaseService {
         .orderBy('timestamp', descending: true)
         .snapshots()
         .handleError((error) {
-      print("❌ 완료 미션 스트림 에러: $error");
+      debugPrint("❌ 완료 미션 스트림 에러: $error");
     });
   }
 
@@ -264,7 +387,7 @@ class DatabaseService {
       });
       return true;
     } catch (e) {
-      print("❌ 닉네임 수정 실패: $e");
+      debugPrint("❌ 닉네임 수정 실패: $e");
       return false;
     }
   }
@@ -300,7 +423,7 @@ class DatabaseService {
       },
     ];
 
-    print("⏳ 샘플 미션 업로드 시작...");
+    debugPrint("⏳ 샘플 미션 업로드 시작...");
     for (var mission in sampleMissions) {
       final QuerySnapshot existing = await _db
           .collection('missions')
@@ -320,6 +443,6 @@ class DatabaseService {
         });
       }
     }
-    print("✅ 샘플 데이터 업로드 완료!");
+    debugPrint("✅ 샘플 데이터 업로드 완료!");
   }
 }

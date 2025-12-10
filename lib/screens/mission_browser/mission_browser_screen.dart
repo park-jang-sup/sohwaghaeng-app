@@ -73,7 +73,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
 
       setState(() {});
     } catch (e) {
-      print("좋아요 토글 에러: $e");
+      debugPrint("좋아요 토글 에러: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('좋아요 처리 중 오류가 발생했습니다')),
@@ -93,7 +93,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     }
 
     // BrowserMission -> Mission 변환
-    final colorHex = '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
+    final colorHex =
+        '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
 
     final newMission = Mission(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -186,7 +187,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
             final authorName = m.author ?? '';
             final matchQuery = m.title.contains(_searchQuery) ||
                 authorName.contains(_searchQuery);
-            final matchTag = _selectedFilterTag == null || m.tag == _selectedFilterTag;
+            final matchTag =
+                _selectedFilterTag == null || m.tag == _selectedFilterTag;
             return matchQuery && matchTag;
           }).toList();
 
@@ -257,7 +259,9 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
         IconButton(
           icon: Icon(
             Icons.filter_list,
-            color: _selectedFilterTag != null ? Colors.orange : Colors.grey.shade600,
+            color: _selectedFilterTag != null
+                ? Colors.orange
+                : Colors.grey.shade600,
           ),
           onPressed: _showFilterDialog,
         ),
@@ -284,23 +288,23 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✅ const 오류 수정
           Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 backgroundColor: Colors.orange,
                 radius: 14,
-                child: const Icon(Icons.favorite, size: 16, color: Colors.white),
+                child: Icon(Icons.favorite, size: 16, color: Colors.white),
               ),
               const SizedBox(width: 8),
               const Text(
                 "좋아요를 많이 받은 SHH",
-                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.orange, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ...featured.map((m) => _buildFeaturedCard(m)).toList(),
+          ...featured.map((m) => _buildFeaturedCard(m)),
         ],
       ),
     );
@@ -456,7 +460,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       child: Column(
         children: [
           SizedBox(
-            height: 300,
+            height: 320, // ✅ 높이 증가 (300 → 320)
             child: PageView.builder(
               controller: PageController(viewportFraction: 0.85),
               itemCount: missions.length,
@@ -464,7 +468,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
               itemBuilder: (context, index) {
                 final mission = missions[index];
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                   child: _buildMissionSliderCard(mission),
                 );
               },
@@ -563,12 +568,13 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
+  // ✅ 오버플로우 수정: 크기 조정
   Widget _buildMissionSliderCard(BrowserMission m) {
     final isAdded = widget.addedMissionIds.contains(m.id);
     final isLiked = _likedMissions.contains(m.id);
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20), // ✅ 패딩 축소 (24 → 20)
       decoration: BoxDecoration(
         color: m.color.withOpacity(0.4),
         borderRadius: BorderRadius.circular(24),
@@ -578,25 +584,28 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min, // ✅ 최소 크기로 설정
         children: [
-          Icon(m.icon, size: 60, color: Colors.grey.shade700),
-          const SizedBox(height: 20),
+          Icon(m.icon, size: 48, color: Colors.grey.shade700), // ✅ 아이콘 축소 (60 → 48)
+          const SizedBox(height: 12), // ✅ 간격 축소 (20 → 12)
           Text(
             m.title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // ✅ 폰트 축소 (20 → 18)
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4), // ✅ 간격 축소 (8 → 4)
           Text(
             "by ${m.author ?? '익명'}",
-            style: TextStyle(color: Colors.grey.shade600),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // ✅ 간격 축소 (12 → 8)
           // ✅ 좋아요 버튼
           GestureDetector(
             onTap: () => _toggleLike(m.id),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), // ✅ 패딩 축소
               decoration: BoxDecoration(
                 color: isLiked ? Colors.orange.shade100 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(20),
@@ -606,35 +615,42 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
                 children: [
                   Icon(
                     isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                    size: 16,
+                    size: 14, // ✅ 아이콘 축소 (16 → 14)
                     color: isLiked ? Colors.orange : Colors.grey,
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4), // ✅ 간격 축소 (6 → 4)
                   Text(
                     "${m.likes}",
                     style: TextStyle(
                       color: isLiked ? Colors.orange : Colors.grey,
                       fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: isAdded ? null : () => _handleAddClick(m),
-            icon: Icon(isAdded ? Icons.check : Icons.add),
-            label: Text(isAdded ? '추가됨' : '내 미션에 추가'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isAdded ? Colors.grey : Colors.green,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey.shade400,
-              disabledForegroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+          const SizedBox(height: 12), // ✅ 간격 축소 (16 → 12)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isAdded ? null : () => _handleAddClick(m),
+              icon: Icon(isAdded ? Icons.check : Icons.add, size: 18),
+              label: Text(
+                isAdded ? '추가됨' : '내 미션에 추가',
+                style: const TextStyle(fontSize: 13),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isAdded ? Colors.grey : Colors.green,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.grey.shade400,
+                disabledForegroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // ✅ 패딩 축소
+              ),
             ),
           )
         ],
@@ -672,7 +688,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
+          children:
+          ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
             return ChoiceChip(
               label: Text(tag),
               selected: _selectedFilterTag == tag,
