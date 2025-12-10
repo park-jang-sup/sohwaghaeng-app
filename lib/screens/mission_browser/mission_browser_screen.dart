@@ -4,6 +4,8 @@ import 'package:b612_1/models/mission.dart';
 import 'package:b612_1/models/browser_mission.dart';
 import 'package:b612_1/services/database_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'mission_browser_widgets.dart';
+import 'mission_slider_view.dart';
 
 class MissionBrowserScreen extends StatefulWidget {
   final Function(Mission, String?) onAddMission;
@@ -25,7 +27,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   // 상태
   String _sortBy = 'latest'; // latest, likes
   String _viewMode = 'grid'; // grid, slider
-  int _currentSlideIndex = 0;
   Set<String> _likedMissions = {};
   String? _selectedFilterTag;
   String _searchQuery = '';
@@ -37,7 +38,13 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     _loadLikedMissions();
   }
 
-  // ✅ 로컬에 저장된 좋아요 목록 불러오기
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // 로컬에 저장된 좋아요 목록 불러오기
   Future<void> _loadLikedMissions() async {
     final prefs = await SharedPreferences.getInstance();
     final liked = prefs.getStringList('liked_missions') ?? [];
@@ -46,7 +53,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     });
   }
 
-  // ✅ 좋아요 토글 (Firestore 업데이트 + 로컬 저장)
+  // 좋아요 토글 (Firestore 업데이트 + 로컬 저장)
   Future<void> _toggleLike(String missionId) async {
     if (_isLoading) return;
 
@@ -58,16 +65,13 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       final isLiked = _likedMissions.contains(missionId);
 
       if (isLiked) {
-        // 좋아요 취소
         await ref.update({'likes': FieldValue.increment(-1)});
         _likedMissions.remove(missionId);
       } else {
-        // 좋아요 추가
         await ref.update({'likes': FieldValue.increment(1)});
         _likedMissions.add(missionId);
       }
 
-      // 로컬에 저장
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('liked_missions', _likedMissions.toList());
 
@@ -92,7 +96,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       return;
     }
 
-    // BrowserMission -> Mission 변환
     final colorHex =
         '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
 
@@ -112,10 +115,40 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('태그 필터'),
+        content: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children:
+          ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
+            return ChoiceChip(
+              label: Text(tag),
+              selected: _selectedFilterTag == tag,
+              selectedColor: Colors.orange.shade200,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedFilterTag = selected ? tag : null;
+                });
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() => _selectedFilterTag = null);
+              Navigator.pop(context);
+            },
+            child: const Text('초기화'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -192,11 +225,10 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
             return matchQuery && matchTag;
           }).toList();
 
-          // ✅ 정렬 로직 개선
+          // 정렬 로직
           if (_sortBy == 'likes') {
             filteredMissions.sort((a, b) => b.likes.compareTo(a.likes));
           } else {
-            // 최신순 정렬 (timestamp 기준)
             filteredMissions.sort((a, b) {
               final aTime = a.timestamp ?? DateTime(2000);
               final bTime = b.timestamp ?? DateTime(2000);
@@ -204,6 +236,35 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
             });
           }
 
+          // 슬라이더 모드
+          if (_viewMode == 'slider') {
+            return MissionSliderView(
+              allMissions: allMissions,
+              filteredMissions: filteredMissions,
+              addedMissionIds: widget.addedMissionIds,
+              likedMissions: _likedMissions,
+              sortBy: _sortBy,
+              viewMode: _viewMode,
+              selectedFilterTag: _selectedFilterTag,
+              searchQuery: _searchQuery,
+              searchController: _searchController,
+              onAddMission: _handleAddClick,
+              onToggleLike: _toggleLike,
+              onSortChanged: (sort) => setState(() => _sortBy = sort),
+              onViewModeChanged: (mode) => setState(() => _viewMode = mode),
+              onSearchChanged: (query) => setState(() => _searchQuery = query),
+              onRefresh: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                  _selectedFilterTag = null;
+                });
+              },
+              onFilterTap: _showFilterDialog,
+            );
+          }
+
+          // 그리드 모드
           return CustomScrollView(
             slivers: [
               _buildSearchBar(),
@@ -211,9 +272,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
                 child: _buildFeaturedSection(allMissions),
               ),
               _buildListHeader(),
-              _viewMode == 'grid'
-                  ? _buildGridList(filteredMissions)
-                  : _buildSliderList(filteredMissions),
+              _buildGridList(filteredMissions),
               const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
             ],
           );
@@ -288,76 +347,13 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Colors.orange,
-                radius: 14,
-                child: Icon(Icons.favorite, size: 16, color: Colors.white),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                "좋아요를 많이 받은 SHH",
-                style: TextStyle(
-                    color: Colors.orange, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
+          const FeaturedSectionHeader(),
           const SizedBox(height: 12),
-          ...featured.map((m) => _buildFeaturedCard(m)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeaturedCard(BrowserMission m) {
-    final isLiked = _likedMissions.contains(m.id);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: m.color, shape: BoxShape.circle),
-            child: Icon(m.icon, color: Colors.grey.shade700, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              m.title,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          // ✅ 좋아요 버튼 (탭 가능)
-          GestureDetector(
-            onTap: () => _toggleLike(m.id),
-            child: Row(
-              children: [
-                Icon(
-                  isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                  size: 14,
-                  color: isLiked ? Colors.orange : Colors.grey,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  "${m.likes}",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isLiked ? Colors.orange : Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ...featured.map((m) => FeaturedMissionCard(
+            mission: m,
+            isLiked: _likedMissions.contains(m.id),
+            onLikeTap: () => _toggleLike(m.id),
+          )),
         ],
       ),
     );
@@ -373,9 +369,19 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
           children: [
             Row(
               children: [
-                _buildViewModeBtn(Icons.grid_view_rounded, 'grid'),
+                ViewModeButton(
+                  icon: Icons.grid_view_rounded,
+                  mode: 'grid',
+                  currentMode: _viewMode,
+                  onModeChanged: (mode) => setState(() => _viewMode = mode),
+                ),
                 const SizedBox(width: 8),
-                _buildViewModeBtn(Icons.view_carousel_rounded, 'slider'),
+                ViewModeButton(
+                  icon: Icons.view_carousel_rounded,
+                  mode: 'slider',
+                  currentMode: _viewMode,
+                  onModeChanged: (mode) => setState(() => _viewMode = mode),
+                ),
               ],
             ),
             TextButton(
@@ -432,286 +438,16 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
         delegate: SliverChildBuilderDelegate(
               (context, index) {
             final mission = missions[index];
-            return _buildMissionGridCard(mission);
+            return MissionGridCard(
+              mission: mission,
+              isAdded: widget.addedMissionIds.contains(mission.id),
+              isLiked: _likedMissions.contains(mission.id),
+              onAddTap: () => _handleAddClick(mission),
+              onLikeTap: () => _toggleLike(mission.id),
+            );
           },
           childCount: missions.length,
         ),
-      ),
-    );
-  }
-
-  // ✅ 슬라이더 + 인디케이터 추가
-  Widget _buildSliderList(List<BrowserMission> missions) {
-    if (missions.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Text(
-              '검색 결과가 없습니다',
-              style: TextStyle(color: Colors.grey.shade500),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SliverToBoxAdapter(
-      child: Column(
-        children: [
-          SizedBox(
-            height: 320, // ✅ 높이 증가 (300 → 320)
-            child: PageView.builder(
-              controller: PageController(viewportFraction: 0.85),
-              itemCount: missions.length,
-              onPageChanged: (idx) => setState(() => _currentSlideIndex = idx),
-              itemBuilder: (context, index) {
-                final mission = missions[index];
-                return Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                  child: _buildMissionSliderCard(mission),
-                );
-              },
-            ),
-          ),
-          // ✅ 페이지 인디케이터
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                missions.length > 10 ? 10 : missions.length, // 최대 10개만 표시
-                    (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _currentSlideIndex ? 20 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: i == _currentSlideIndex
-                        ? Colors.orange
-                        : Colors.grey.shade300,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMissionGridCard(BrowserMission m) {
-    final isAdded = widget.addedMissionIds.contains(m.id);
-    final isLiked = _likedMissions.contains(m.id);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: m.color.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(m.icon, size: 40, color: Colors.grey.shade700),
-          const SizedBox(height: 12),
-          Text(
-            m.title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // ✅ 좋아요 버튼 (탭 가능)
-              GestureDetector(
-                onTap: () => _toggleLike(m.id),
-                child: Row(
-                  children: [
-                    Icon(
-                      isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                      size: 12,
-                      color: isLiked ? Colors.orange : Colors.grey,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "${m.likes}",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isLiked ? Colors.orange : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _handleAddClick(m),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: isAdded ? Colors.grey : Colors.green,
-                  child: Icon(
-                    isAdded ? Icons.check : Icons.add,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  // ✅ 오버플로우 수정: 크기 조정
-  Widget _buildMissionSliderCard(BrowserMission m) {
-    final isAdded = widget.addedMissionIds.contains(m.id);
-    final isLiked = _likedMissions.contains(m.id);
-
-    return Container(
-      padding: const EdgeInsets.all(20), // ✅ 패딩 축소 (24 → 20)
-      decoration: BoxDecoration(
-        color: m.color.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min, // ✅ 최소 크기로 설정
-        children: [
-          Icon(m.icon, size: 48, color: Colors.grey.shade700), // ✅ 아이콘 축소 (60 → 48)
-          const SizedBox(height: 12), // ✅ 간격 축소 (20 → 12)
-          Text(
-            m.title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // ✅ 폰트 축소 (20 → 18)
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4), // ✅ 간격 축소 (8 → 4)
-          Text(
-            "by ${m.author ?? '익명'}",
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-          ),
-          const SizedBox(height: 8), // ✅ 간격 축소 (12 → 8)
-          // ✅ 좋아요 버튼
-          GestureDetector(
-            onTap: () => _toggleLike(m.id),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), // ✅ 패딩 축소
-              decoration: BoxDecoration(
-                color: isLiked ? Colors.orange.shade100 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                    size: 14, // ✅ 아이콘 축소 (16 → 14)
-                    color: isLiked ? Colors.orange : Colors.grey,
-                  ),
-                  const SizedBox(width: 4), // ✅ 간격 축소 (6 → 4)
-                  Text(
-                    "${m.likes}",
-                    style: TextStyle(
-                      color: isLiked ? Colors.orange : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12), // ✅ 간격 축소 (16 → 12)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: isAdded ? null : () => _handleAddClick(m),
-              icon: Icon(isAdded ? Icons.check : Icons.add, size: 18),
-              label: Text(
-                isAdded ? '추가됨' : '내 미션에 추가',
-                style: const TextStyle(fontSize: 13),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isAdded ? Colors.grey : Colors.green,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade400,
-                disabledForegroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // ✅ 패딩 축소
-              ),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildViewModeBtn(IconData icon, String mode) {
-    final isSelected = _viewMode == mode;
-    return GestureDetector(
-      onTap: () => setState(() {
-        _viewMode = mode;
-        _currentSlideIndex = 0; // 모드 변경 시 인덱스 초기화
-      }),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.orange.shade300 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: isSelected ? Colors.white : Colors.grey,
-        ),
-      ),
-    );
-  }
-
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('태그 필터'),
-        content: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children:
-          ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
-            return ChoiceChip(
-              label: Text(tag),
-              selected: _selectedFilterTag == tag,
-              selectedColor: Colors.orange.shade200,
-              onSelected: (selected) {
-                setState(() {
-                  _selectedFilterTag = selected ? tag : null;
-                });
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => _selectedFilterTag = null);
-              Navigator.pop(context);
-            },
-            child: const Text('초기화'),
-          ),
-        ],
       ),
     );
   }

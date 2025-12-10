@@ -794,7 +794,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                   const SizedBox(height: 24),
                 ],
               );
-            }).toList(),
+            }),
         ],
       ),
     );
@@ -981,7 +981,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                       ),
                     ),
                   ),
-                )).toList(),
+                )),
               if (_selectedMonthFilter != null)
                 TextButton(
                   onPressed: () {
@@ -1091,6 +1091,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     );
   }
 
+  // ✅ 오버플로우 수정: DraggableScrollableSheet + ListView 사용
   void _showDayDetailModal(DateTime date) {
     final dayMissions = widget.missionHistory.where((m) {
       if (m.completedAt == null) return false;
@@ -1102,119 +1103,158 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              dateStr,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-
-            if (dayMissions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: Text(
-                    "이 날 완료한 미션이 없어요.",
-                    style: TextStyle(color: Colors.grey),
+      isScrollControlled: true, // ✅ 스크롤 가능하도록 설정
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5, // ✅ 초기 높이 50%
+        maxChildSize: 0.85, // ✅ 최대 높이 85%
+        minChildSize: 0.3, // ✅ 최소 높이 30%
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ✅ 드래그 핸들
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
+              Text(
+                dateStr,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                dayMissions.isEmpty
+                    ? "완료한 미션이 없어요"
+                    : "${dayMissions.length}개의 미션 완료",
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 16),
 
-            ...dayMissions.map((mission) {
-              final timeStr = mission.completedAt != null
-                  ? DateFormat('a h:mm', 'ko_KR').format(mission.completedAt!)
-                  : '';
+              // ✅ Expanded + ListView로 스크롤 가능하게
+              Expanded(
+                child: dayMissions.isEmpty
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.event_busy,
+                          size: 48, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Text(
+                        "이 날 완료한 미션이 없어요.",
+                        style: TextStyle(color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  controller: scrollController,
+                  itemCount: dayMissions.length,
+                  itemBuilder: (context, index) {
+                    final mission = dayMissions[index];
+                    final timeStr = mission.completedAt != null
+                        ? DateFormat('a h:mm', 'ko_KR')
+                        .format(mission.completedAt!)
+                        : '';
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(
-                  color: mission.colorObj.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.4),
-                        shape: BoxShape.circle,
+                        color: mission.colorObj.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(
-                        mission.iconData,
-                        color: Colors.grey.shade700,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            mission.title,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500,
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              mission.iconData,
+                              color: Colors.grey.shade700,
+                              size: 24,
                             ),
                           ),
-                          if (timeStr.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                timeStr,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  mission.title,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade800,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (timeStr.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (mission.photo != null)
+                            Container(
+                              width: 40,
+                              height: 40,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: mission.photo!.startsWith('http')
+                                      ? NetworkImage(mission.photo!)
+                                  as ImageProvider
+                                      : FileImage(File(mission.photo!)),
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    if (mission.photo != null)
-                      Container(
-                        width: 40,
-                        height: 40,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: mission.photo!.startsWith('http')
-                                ? NetworkImage(mission.photo!) as ImageProvider
-                                : FileImage(File(mission.photo!)),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.4),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            }).toList(),
-            const SizedBox(height: 20),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1291,7 +1331,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                   )
                       : const Icon(Icons.check_circle, color: Colors.green),
                 );
-              }).toList(),
+              }),
             ],
           ),
         ),
