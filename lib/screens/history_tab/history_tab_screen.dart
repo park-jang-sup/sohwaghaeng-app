@@ -175,7 +175,7 @@ class _HistoryTabScreenState extends State<HistoryTabScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.userProfile.bio,
+                        widget.userProfile.nickname,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       GestureDetector(
