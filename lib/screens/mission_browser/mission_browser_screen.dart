@@ -32,18 +32,18 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   String _searchQuery = '';
   bool _isLoading = false;
 
-  // ✅ [수정 1] 컨트롤러와 스트림을 변수로 선언
+  // 컨트롤러와 스트림을 변수로 선언
   late PageController _pageController;
-  late Stream<QuerySnapshot> _missionsStream; // 스트림을 잡아둘 변수
+  late Stream<QuerySnapshot> _missionsStream;
 
   @override
   void initState() {
     super.initState();
     _loadLikedMissions();
 
-    // ✅ [수정 2] 한 번만 생성되도록 initState에 배치
+    // 한 번만 생성되도록 initState에 배치
     _pageController = PageController(viewportFraction: 0.85);
-    _missionsStream = DatabaseService().getPublicMissionsStream(); // 스트림 고정
+    _missionsStream = DatabaseService().getPublicMissionsStream();
   }
 
   @override
@@ -53,8 +53,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     super.dispose();
   }
 
-  // ... (기존 _loadLikedMissions, _toggleLike, _handleAddClick, _showFilterDialog 코드는 그대로 유지) ...
-  // (스크롤 압박을 줄이기 위해 이 부분은 기존 코드를 그대로 사용하세요)
   Future<void> _loadLikedMissions() async {
     final prefs = await SharedPreferences.getInstance();
     final liked = prefs.getStringList('liked_missions') ?? [];
@@ -64,11 +62,7 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   }
 
   Future<void> _toggleLike(String missionId) async {
-    // 로딩 인디케이터(_isLoading)를 사용하면 화면이 멈칫할 수 있으니
-    // Firestore 업데이트는 백그라운드에서 하되, UI 갱신은 Stream이 알아서 하게 두는 게 좋습니다.
     if (_isLoading) return;
-
-    // setState(() => _isLoading = true); // ⚠️ 이 부분을 주석 처리하면 더 부드럽습니다.
 
     try {
       final db = FirebaseFirestore.instance;
@@ -93,12 +87,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList('liked_missions', _likedMissions.toList());
-
     } catch (e) {
       debugPrint("좋아요 토글 에러: $e");
-      // 에러 시 롤백 로직이 필요할 수 있음
-    } finally {
-      // setState(() => _isLoading = false); // ⚠️ 주석 처리
     }
   }
 
@@ -110,7 +100,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
       return;
     }
 
-    final colorHex = '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
+    final colorHex =
+        '#${bm.color.value.toRadixString(16).substring(2).toUpperCase()}';
     final newMission = Mission(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: bm.title,
@@ -135,7 +126,8 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
+          children:
+          ['coffee', 'leaf', 'heart', 'book', 'sun', 'star'].map((tag) {
             return ChoiceChip(
               label: Text(tag),
               selected: _selectedFilterTag == tag,
@@ -167,7 +159,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7ED),
       body: StreamBuilder<QuerySnapshot>(
-        // ✅ [수정 3] 여기서 함수를 호출하지 않고, initState에서 만든 변수를 사용
         stream: _missionsStream,
         builder: (context, snapshot) {
           // 1. 로딩 중 (초기 데이터 없을 때만)
@@ -215,7 +206,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
           // 화면 모드에 따른 분기
           if (_viewMode == 'slider') {
             return MissionSliderView(
-              // ✅ 부모가 관리하는 컨트롤러 전달
               pageController: _pageController,
               allMissions: allMissions,
               filteredMissions: filteredMissions,
@@ -259,8 +249,6 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
     );
   }
 
-  // (이하 그리드 뷰용 서브 위젯들: _buildSearchBar 등 기존 코드 유지)
-  // ...
   Widget _buildSearchBar() {
     return SliverAppBar(
       floating: true,
@@ -276,11 +264,22 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
         child: TextField(
           controller: _searchController,
           onChanged: (value) => setState(() => _searchQuery = value),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '소확행을 검색하세요',
-            prefixIcon: Icon(Icons.search, color: Colors.grey),
+            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            // ✅ X 버튼 추가
+            suffixIcon: _searchQuery.isNotEmpty
+                ? GestureDetector(
+              onTap: () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              },
+              child: const Icon(Icons.close, color: Colors.grey, size: 20),
+            )
+                : null,
             border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
         ),
       ),
