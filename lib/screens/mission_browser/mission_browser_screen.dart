@@ -32,13 +32,13 @@ class _MissionBrowserScreenState extends State<MissionBrowserScreen> {
   String _searchQuery = '';
 
   final Map<String, String> _tagMap = {
-    'coffee': '☕ 휴식',
-    'leaf': '🌿 건강',
-    'heart': '❤️ 마음',
-    'book': '📚 자기계발',
-    'sun': '☀️ 일상',
-    'star': '⭐ 특별',
-    'gym': '💪 운동',
+    '휴식': '☕ 휴식',
+    '건강': '🌿 건강',
+    '마음': '❤️ 마음',
+    '일상': '☀️ 일상',
+    '운동': '💪 운동',
+    'custom': '✨ 커스텀',
+    'test': '🧪 테스트',
   };
 
   late PageController _pageController;

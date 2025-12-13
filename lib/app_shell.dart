@@ -114,6 +114,10 @@ class _AppShellState extends State<AppShell> {
   Future<void> _initializeData() async {
     await _loadUserProfile();
     if (!mounted) return;
+
+    // ✅ [NEW] 일일 미션 초기화 (하루가 지나면 완료 상태 리셋)
+    await DatabaseService().resetDailyMissions();
+
     await _loadAttendanceData();
     _calculateStreak();
     setState(() => _isLoadingProfile = false);
@@ -236,7 +240,7 @@ class _AppShellState extends State<AppShell> {
         iconCode: mission.iconData.codePoint,
         color: mission.color,
         author: mission.source,
-        source: 'imported', // ✅ 탐색에서 가져온 미션은 'imported'로 분류
+        source: 'imported',
       );
 
       // ✅ 담기 횟수 증가

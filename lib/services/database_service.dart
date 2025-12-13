@@ -139,7 +139,7 @@ class DatabaseService {
     String? color,
     String? author,
     String? time,
-    String? source, // ✅ source 파라미터 추가
+    String? source,
   }) async {
     if (currentUserId == null) {
       debugPrint("❌ 로그인이 필요합니다.");
@@ -158,7 +158,7 @@ class DatabaseService {
         'author': author ?? '나',
         'time': time,
         'timestamp': DateTime.now(),
-        'source': source ?? 'mine', // ✅ source 파라미터 사용
+        'source': source ?? 'mine',
       });
       debugPrint("✅ 내 미션 추가 완료!");
       return true;
@@ -169,7 +169,7 @@ class DatabaseService {
   }
 
   // ===============================================================
-  // ✅ [NEW] 공개 미션 추가 (모든 사용자가 탐색 탭에서 볼 수 있음)
+  // ✅ 공개 미션 관리
   // ===============================================================
   Future<String?> addPublicMission({
     required String title,
@@ -184,7 +184,6 @@ class DatabaseService {
     }
 
     try {
-      // 작성자 닉네임 가져오기
       final userData = await getCurrentUserData();
       final authorName = userData?['nickname'] ?? '익명';
 
@@ -195,21 +194,20 @@ class DatabaseService {
         'icon_code': iconCode,
         'color': color ?? '#FFFFFF',
         'author': authorName,
-        'author_id': currentUserId, // 작성자 ID (수정/삭제 권한 확인용)
+        'author_id': currentUserId,
         'likes': 0,
         'addedCount': 0,
         'timestamp': DateTime.now(),
       });
 
       debugPrint("✅ 공개 미션 추가 완료! (ID: ${docRef.id})");
-      return docRef.id; // 생성된 문서 ID 반환
+      return docRef.id;
     } catch (e) {
       debugPrint("❌ 공개 미션 추가 에러: $e");
       return null;
     }
   }
 
-  // ✅ [NEW] 공개 미션 수정 (작성자만 가능)
   Future<bool> updatePublicMission(
       String missionId,
       Map<String, dynamic> data,
@@ -217,7 +215,6 @@ class DatabaseService {
     if (currentUserId == null) return false;
 
     try {
-      // 작성자 확인
       final doc = await _db.collection('missions').doc(missionId).get();
       if (!doc.exists) return false;
 
@@ -236,12 +233,10 @@ class DatabaseService {
     }
   }
 
-  // ✅ [NEW] 공개 미션 삭제 (작성자만 가능)
   Future<bool> deletePublicMission(String missionId) async {
     if (currentUserId == null) return false;
 
     try {
-      // 작성자 확인
       final doc = await _db.collection('missions').doc(missionId).get();
       if (!doc.exists) return false;
 
@@ -260,7 +255,6 @@ class DatabaseService {
     }
   }
 
-  // ✅ [NEW] 내가 작성한 공개 미션 목록 가져오기
   Stream<QuerySnapshot> getMyPublicMissionsStream() {
     if (currentUserId == null) {
       return const Stream.empty();
@@ -273,7 +267,6 @@ class DatabaseService {
         .snapshots();
   }
 
-  // ✅ [NEW] 미션 담기 횟수 증가 (다른 사용자가 담을 때)
   Future<void> incrementAddedCount(String missionId) async {
     try {
       await _db.collection('missions').doc(missionId).update({
@@ -284,7 +277,7 @@ class DatabaseService {
     }
   }
 
-  // [미션 상태 수정] 완료 체크, 사진 URL 저장 등
+  // [미션 상태 수정]
   Future<bool> updateUserMission(
       String missionId,
       Map<String, dynamic> data,
@@ -306,6 +299,84 @@ class DatabaseService {
     } catch (e) {
       debugPrint("❌ 미션 삭제 에러: $e");
       return false;
+    }
+  }
+
+  // ===============================================================
+  // ✅ [NEW] 일일 미션 초기화 (하루가 지나면 completed를 false로)
+  // ===============================================================
+  Future<void> resetDailyMissions() async {
+    if (currentUserId == null) return;
+
+    try {
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+
+      // 내 미션 중 completed가 true인 것들 가져오기
+      final snapshot = await _db
+          .collection('user_missions')
+          .where('user_id', isEqualTo: currentUserId)
+          .where('completed', isEqualTo: true)
+          .get();
+
+      final batch = _db.batch();
+      int resetCount = 0;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final completedAt = data['completedAt'];
+
+        // completedAt이 없으면 초기화 (이전 데이터 호환)
+        if (completedAt == null) {
+          batch.update(doc.reference, {'completed': false});
+          resetCount++;
+        } else {
+          DateTime completedDate;
+          if (completedAt is Timestamp) {
+            completedDate = completedAt.toDate();
+          } else {
+            continue;
+          }
+
+          // 완료 날짜가 오늘 이전이면 초기화
+          if (completedDate.isBefore(todayStart)) {
+            batch.update(doc.reference, {
+              'completed': false,
+              'completedAt': null,
+            });
+            resetCount++;
+          }
+        }
+      }
+
+      if (resetCount > 0) {
+        await batch.commit();
+        debugPrint("✅ $resetCount개 미션 상태 초기화 완료!");
+      } else {
+        debugPrint("ℹ️ 초기화할 미션이 없습니다.");
+      }
+    } catch (e) {
+      debugPrint("❌ 미션 초기화 에러: $e");
+    }
+  }
+
+  // ✅ [NEW] 실제 사용 중인 태그 목록 가져오기
+  Future<List<String>> getAvailableTags() async {
+    try {
+      final snapshot = await _db.collection('missions').get();
+      final tags = <String>{};
+
+      for (final doc in snapshot.docs) {
+        final tag = doc.data()['tag'] as String?;
+        if (tag != null && tag.isNotEmpty) {
+          tags.add(tag);
+        }
+      }
+
+      return tags.toList()..sort();
+    } catch (e) {
+      debugPrint("❌ 태그 목록 조회 에러: $e");
+      return [];
     }
   }
 
